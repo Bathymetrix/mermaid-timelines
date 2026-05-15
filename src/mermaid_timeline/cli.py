@@ -16,7 +16,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "synthesize":
+    if args.command in ("build", "synthesize"):
         try:
             summary = run_timeline_pipeline(
                 Path(args.input_root),
@@ -50,30 +50,38 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    synthesize = subparsers.add_parser(
-        "synthesize",
+    _add_build_parser(subparsers, "build")
+    _add_build_parser(subparsers, "synthesize")
+
+    return parser
+
+
+def _add_build_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    name: str,
+) -> None:
+    command = subparsers.add_parser(
+        name,
         help="build buffer_intervals.jsonl and detreq_intervals.jsonl",
     )
-    synthesize.add_argument(
+    command.add_argument(
         "-i",
         "--input-root",
         required=True,
         help="normalized mermaid-records output root",
     )
-    synthesize.add_argument(
+    command.add_argument(
         "-o",
         "--output-root",
         required=True,
         help="directory where timeline JSONL outputs will be written",
     )
-    synthesize.add_argument(
+    command.add_argument(
         "--validation",
         choices=("strict", "diagnostic"),
         default="strict",
         help="validation mode (default: strict)",
     )
-
-    return parser
 
 
 if __name__ == "__main__":

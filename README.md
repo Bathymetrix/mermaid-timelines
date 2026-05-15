@@ -9,6 +9,9 @@ these interval products alongside catalogs and travel-time products.
 
 Requires Python 3.12 or newer.
 
+Python import paths are not yet a stable public API. The stable v0.1 contract
+is the `mermaid-timeline` CLI plus the documented JSONL input/output schemas.
+
 ## Inputs
 
 - `log_acquisition_records.jsonl` produces `buf` intervals.
@@ -24,11 +27,13 @@ Each output is a flat JSONL stream with one interval object per line:
 ## CLI
 
 ```bash
-mermaid-timeline synthesize \
+mermaid-timeline build \
   --input-root /path/to/mermaid-records/output \
   --output-root /path/to/timeline/output \
   --validation strict
 ```
+
+`synthesize` is also accepted as a backwards-compatible alias for `build`.
 
 Validation modes:
 

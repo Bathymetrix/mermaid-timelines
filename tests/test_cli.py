@@ -11,7 +11,7 @@ from mermaid_timeline.cli import main
 
 
 class CliTests(unittest.TestCase):
-    def test_cli_synthesizes_interval_files(self) -> None:
+    def test_cli_build_writes_interval_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
             input_dir = tmp_path / "records" / "467.174-T-0100"
@@ -57,7 +57,7 @@ class CliTests(unittest.TestCase):
             with redirect_stdout(output):
                 exit_code = main(
                     [
-                        "synthesize",
+                        "build",
                         "--input-root",
                         str(tmp_path / "records"),
                         "--output-root",
@@ -89,6 +89,35 @@ class CliTests(unittest.TestCase):
                 ],
                 "req",
             )
+
+    def test_cli_accepts_synthesize_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            tmp_path = Path(tmp_name)
+            input_root = tmp_path / "records"
+            input_root.mkdir()
+
+            output = io.StringIO()
+            with redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "synthesize",
+                        "--input-root",
+                        str(input_root),
+                        "--output-root",
+                        str(tmp_path / "timeline"),
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            json.loads(output.getvalue()),
+            {
+                "buffer_intervals": 0,
+                "detreq_intervals": 0,
+                "diagnostics": 0,
+                "directories": 0,
+            },
+        )
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
