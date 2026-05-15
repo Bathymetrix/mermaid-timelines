@@ -33,8 +33,6 @@ mermaid-timeline build \
   --validation strict
 ```
 
-`synthesize` is also accepted as a backwards-compatible alias for `build`.
-
 Validation modes:
 
 - `strict`: raise on invalid or ambiguous input.

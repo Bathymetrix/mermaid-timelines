@@ -90,35 +90,6 @@ class CliTests(unittest.TestCase):
                 "req",
             )
 
-    def test_cli_accepts_synthesize_alias(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_name:
-            tmp_path = Path(tmp_name)
-            input_root = tmp_path / "records"
-            input_root.mkdir()
-
-            output = io.StringIO()
-            with redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "synthesize",
-                        "--input-root",
-                        str(input_root),
-                        "--output-root",
-                        str(tmp_path / "timeline"),
-                    ]
-                )
-
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(
-            json.loads(output.getvalue()),
-            {
-                "buffer_intervals": 0,
-                "detreq_intervals": 0,
-                "diagnostics": 0,
-                "directories": 0,
-            },
-        )
-
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
     with path.open("w", encoding="utf-8") as handle:
