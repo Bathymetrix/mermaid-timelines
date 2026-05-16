@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from mermaid_timeline.acquisition import build_buffer_intervals
+from mermaid_timeline.buffer import build_buffer_intervals
 from mermaid_timeline.diagnostics import TimelineValidationError
 
 
@@ -23,7 +23,7 @@ def row(
     }
 
 
-class AcquisitionTests(unittest.TestCase):
+class BufferTests(unittest.TestCase):
     def test_started_assertion_then_stopped_transition_is_closed_interval(self) -> None:
         result = build_buffer_intervals(
             [

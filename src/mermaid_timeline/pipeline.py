@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from mermaid_timeline.acquisition import (
+from mermaid_timeline.buffer import (
     ACQUISITION_RECORDS_FILE,
     build_buffer_intervals_from_records,
 )
