@@ -95,6 +95,7 @@ Diagnostic shape:
   "message": "stopped transition encountered with no active interval",
   "records_file": "log_acquisition_records.jsonl",
   "record_line": 1,
+  "issue_time": "2023-11-20T10:00:00Z",
   "instrument_id": "0100",
   "source_file": "0100_acq.LOG"
 }
@@ -107,6 +108,10 @@ Fields:
 - `message`: human-readable diagnostic detail.
 - `records_file`: normalized input JSONL filename that produced the diagnostic.
 - `record_line`: 1-based input JSONL line number, or `null` if unavailable.
+- `issue_time`: purported event time for the row that produced the diagnostic,
+  or `null` if unavailable. BUF transition warnings use normalized UTC
+  `record_time`; other diagnostics use the source row's `record_time` or `date`
+  value when present.
 - `instrument_id`: source instrument ID, or `null` if unavailable.
 - `source_file`: upstream source basename, or `null` if unavailable.
 

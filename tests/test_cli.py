@@ -143,6 +143,7 @@ class CliTests(unittest.TestCase):
                         ),
                         "records_file": "log_acquisition_records.jsonl",
                         "record_line": 1,
+                        "issue_time": "2023-11-20T10:00:00Z",
                         "instrument_id": "0100",
                         "source_file": "0100_acq.LOG",
                     }

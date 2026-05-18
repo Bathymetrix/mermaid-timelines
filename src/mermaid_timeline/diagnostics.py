@@ -21,6 +21,7 @@ class Diagnostic:
     message: str
     records_file: str
     record_line: int | None = None
+    issue_time: str | None = None
     instrument_id: str | None = None
     source_file: str | None = None
 
@@ -46,6 +47,7 @@ class ValidationContext:
         records_file: str,
         record_line: int | None = None,
         row: JsonObject | None = None,
+        issue_time: str | None = None,
     ) -> None:
         diagnostic = Diagnostic(
             severity=severity,
@@ -53,6 +55,7 @@ class ValidationContext:
             message=message,
             records_file=records_file,
             record_line=record_line,
+            issue_time=issue_time or _issue_time_from_row(row),
             instrument_id=_string_or_none(row.get("instrument_id")) if row else None,
             source_file=_string_or_none(row.get("source_file")) if row else None,
         )
@@ -72,3 +75,13 @@ def _string_or_none(value: object) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _issue_time_from_row(row: JsonObject | None) -> str | None:
+    if row is None:
+        return None
+    for field_name in ("record_time", "date"):
+        value = _string_or_none(row.get(field_name))
+        if value is not None:
+            return value
+    return None

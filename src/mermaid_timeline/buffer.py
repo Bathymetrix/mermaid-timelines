@@ -176,6 +176,7 @@ def _build_instrument_intervals(
                     records_file=records_file,
                     record_line=event.line_number,
                     row=event.row,
+                    issue_time=format_timestamp(event.time),
                 )
                 continue
             current = _OpenInterval(record=event)
@@ -195,6 +196,7 @@ def _build_instrument_intervals(
                     records_file=records_file,
                     record_line=event.line_number,
                     row=event.row,
+                    issue_time=format_timestamp(event.time),
                 )
                 continue
             intervals.append(

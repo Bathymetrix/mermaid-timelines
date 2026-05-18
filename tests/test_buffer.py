@@ -102,6 +102,10 @@ class BufferTests(unittest.TestCase):
             [item.code for item in diagnostic.diagnostics],
             ["duplicate_start_transition"],
         )
+        self.assertEqual(
+            [item.issue_time for item in diagnostic.diagnostics],
+            ["2023-11-20T10:05:00Z"],
+        )
 
     def test_orphan_stop_transition_is_strict_error_and_diagnostic_warning(self) -> None:
         rows = [row("2023-11-20T10:00:00", "stopped", "transition")]
@@ -114,6 +118,10 @@ class BufferTests(unittest.TestCase):
         self.assertEqual(
             [item.code for item in diagnostic.diagnostics],
             ["orphan_stop_transition"],
+        )
+        self.assertEqual(
+            [item.issue_time for item in diagnostic.diagnostics],
+            ["2023-11-20T10:00:00Z"],
         )
 
     def test_orphan_stop_transition_diagnostic_mode_continues(self) -> None:
