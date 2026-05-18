@@ -39,6 +39,41 @@ Validation modes:
 - `diagnostic`: emit diagnostics and continue where an interval can still be
   synthesized conservatively.
 
+## Optional Plotting
+
+Plotting is an optional reporting layer over the synthesized interval JSONL
+files. It is not part of interval synthesis and does not change the core JSONL
+contract.
+
+Install the reporting extra when you want HTML plots:
+
+```bash
+pip install "mermaid-timeline[plot]"
+```
+
+Then create a self-contained Plotly availability report:
+
+```bash
+mermaid-timeline plot \
+  --input-root /path/to/timeline/output \
+  --output timeline.html
+```
+
+The report draws one horizontal lane per `instrument_id`, distinguishes `buf`,
+`det`, and `req` intervals, and marks `open_unknown` ends as open-ended in the
+visual styling and hover text.
+
+Optional filters:
+
+```bash
+mermaid-timeline plot \
+  --input-root /path/to/timeline/output \
+  --output timeline-0100.html \
+  --instrument-id 0100 \
+  --start-time 2023-01-01T00:00:00Z \
+  --end-time 2024-01-01T00:00:00Z
+```
+
 ## State-Machine Summary
 
 Acquisition rows are interpreted from normalized fields only:

@@ -116,6 +116,25 @@ class BufferTests(unittest.TestCase):
             ["orphan_stop_transition"],
         )
 
+    def test_orphan_stop_transition_diagnostic_mode_continues(self) -> None:
+        rows = [
+            row("2023-11-20T10:00:00", "stopped", "transition"),
+            row("2023-11-20T11:00:00", "started", "transition"),
+            row("2023-11-20T12:00:00", "stopped", "transition"),
+        ]
+
+        with self.assertRaisesRegex(TimelineValidationError, "orphan_stop_transition"):
+            build_buffer_intervals(rows, validation="strict")
+
+        diagnostic = build_buffer_intervals(rows, validation="diagnostic")
+        self.assertEqual(
+            [item.code for item in diagnostic.diagnostics],
+            ["orphan_stop_transition"],
+        )
+        self.assertEqual(len(diagnostic.intervals), 1)
+        self.assertEqual(diagnostic.intervals[0]["start_time"], "2023-11-20T11:00:00Z")
+        self.assertEqual(diagnostic.intervals[0]["end_time"], "2023-11-20T12:00:00Z")
+
     def test_open_interval_at_end_of_input_is_open_unknown(self) -> None:
         result = build_buffer_intervals(
             [row("2023-11-20T10:00:00", "started", "transition")]

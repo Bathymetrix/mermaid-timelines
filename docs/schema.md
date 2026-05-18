@@ -24,6 +24,17 @@ Boundary vocabulary for `0.1.0`:
 - `open_unknown`: the true boundary is unknown and must not be inferred from the
   evidence timestamp.
 
+`interval_type` vocabulary for `0.1.0`:
+
+- `buf`: acquisition buffer interval synthesized from acquisition records.
+- `det`: detected MER event interval.
+- `req`: requested MER event interval without detection fields.
+
+`provenance` is intentionally small and points back to the normalized JSONL row
+or rows used to synthesize the interval. BUF intervals include
+`records_file`, `start_record_line`, `end_record_line`, and `source_file`.
+DET/REQ intervals include `records_file`, `record_line`, and `source_file`.
+
 ## BUF Intervals
 
 Input: `log_acquisition_records.jsonl`
@@ -69,6 +80,11 @@ Diagnostic mode may write `timeline_diagnostics.jsonl` next to interval output
 files for an input records directory. The file is a flat JSONL stream with one
 diagnostic object per line and no top-level document wrapper. It is only written
 when diagnostics are emitted.
+
+The build pipeline emits this file when `--validation diagnostic` encounters
+recoverable validation conditions such as duplicate or orphan acquisition
+transitions. In `--validation strict`, the same conditions fail the command
+instead of producing interval output for that directory.
 
 Diagnostic shape:
 

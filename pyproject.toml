@@ -18,6 +18,9 @@ dependencies = []
 test = [
   "pytest>=8",
 ]
+plot = [
+  "plotly>=5",
+]
 
 [project.scripts]
 mermaid-timeline = "mermaid_timeline.cli:main"
