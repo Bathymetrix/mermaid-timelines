@@ -62,10 +62,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "plot":
+        input_root = Path(args.input_root)
+        output = Path(args.output)
+        print(
+            f"mermaid-timeline: plotting {input_root} -> {output}",
+            file=sys.stderr,
+        )
         try:
             count = write_availability_html(
-                Path(args.input_root),
-                Path(args.output),
+                input_root,
+                output,
                 filters=parse_plot_filters(
                     instrument_ids=args.instrument_id,
                     start_time=args.start_time,
@@ -80,7 +86,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
         print(
             json.dumps(
-                {"intervals": count, "output": str(Path(args.output))},
+                {"intervals": count, "output": str(output)},
                 sort_keys=True,
             )
         )

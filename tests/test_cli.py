@@ -233,10 +233,11 @@ class CliTests(unittest.TestCase):
 
             report_path = tmp_path / "timeline.html"
             output = io.StringIO()
+            stderr = io.StringIO()
             with patch(
                 "mermaid_timeline.plotting._load_plotly",
                 return_value=(_FakeGo, _fake_plot),
-            ), redirect_stdout(output):
+            ), redirect_stdout(output), redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "plot",
@@ -249,6 +250,8 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(json.loads(output.getvalue())["intervals"], 3)
+            self.assertIn("mermaid-timeline: plotting", stderr.getvalue())
+            self.assertIn(str(report_path), stderr.getvalue())
             html = report_path.read_text(encoding="utf-8")
             self.assertIn("0100", html)
             self.assertIn("0200", html)
