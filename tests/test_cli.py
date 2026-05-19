@@ -258,6 +258,8 @@ class CliTests(unittest.TestCase):
             self.assertIn("buf", html)
             self.assertIn("det", html)
             self.assertIn("req", html)
+            self.assertIn("float_serial: 467.174", html)
+            self.assertIn("timeline_subdir: 467.174-T-0100", html)
             self.assertIn("open-ended; true end unknown", html)
 
     def test_cli_plot_instrument_filter_reduces_html_report(self) -> None:

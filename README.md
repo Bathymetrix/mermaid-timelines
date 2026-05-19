@@ -61,7 +61,10 @@ mermaid-timeline plot \
 
 The report draws one horizontal lane per `instrument_id`, distinguishes `buf`,
 `det`, and `req` intervals, and marks `open_unknown` ends as open-ended in the
-visual styling and hover text.
+visual styling and hover text. It recursively scans the input root for
+`buffer_intervals.jsonl` and `detreq_intervals.jsonl`, and hover text includes
+the source timeline subdirectory plus the inferred float serial when outputs use
+the usual `467.174-T-0100` directory naming pattern.
 
 Optional filters:
 

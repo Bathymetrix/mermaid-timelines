@@ -178,6 +178,10 @@ def _hover_text(interval: IntervalRow) -> str:
         f"start_boundary: {interval.start_boundary}",
         f"end_boundary: {interval.end_boundary}",
     ]
+    if interval.float_serial is not None:
+        lines.append(f"float_serial: {interval.float_serial}")
+    if interval.timeline_subdir is not None:
+        lines.append(f"timeline_subdir: {interval.timeline_subdir}")
     if interval.end_boundary == "open_unknown":
         lines.append("status: open-ended; true end unknown")
     for key in (

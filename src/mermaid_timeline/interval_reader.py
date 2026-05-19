@@ -29,6 +29,8 @@ class IntervalRow:
     provenance: JsonObject
     interval_file: Path
     interval_line: int
+    timeline_subdir: str | None
+    float_serial: str | None
 
 
 def read_interval_rows(input_root: Path) -> list[IntervalRow]:
@@ -38,7 +40,7 @@ def read_interval_rows(input_root: Path) -> list[IntervalRow]:
     intervals: list[IntervalRow] = []
     for filename in (BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE):
         for path in sorted(root.rglob(filename)):
-            intervals.extend(_read_file(path))
+            intervals.extend(_read_file(root, path))
     intervals.sort(
         key=lambda row: (
             row.instrument_id,
@@ -50,11 +52,11 @@ def read_interval_rows(input_root: Path) -> list[IntervalRow]:
     return intervals
 
 
-def _read_file(path: Path) -> list[IntervalRow]:
-    return [_interval_from_record(path, record) for record in iter_jsonl(path)]
+def _read_file(root: Path, path: Path) -> list[IntervalRow]:
+    return [_interval_from_record(root, path, record) for record in iter_jsonl(path)]
 
 
-def _interval_from_record(path: Path, record: SourceRecord) -> IntervalRow:
+def _interval_from_record(root: Path, path: Path, record: SourceRecord) -> IntervalRow:
     row = record.row
     instrument_id = _required_string(row, "instrument_id", path, record.line_number)
     interval_type = _required_string(row, "interval_type", path, record.line_number)
@@ -88,6 +90,7 @@ def _interval_from_record(path: Path, record: SourceRecord) -> IntervalRow:
             )
         )
 
+    timeline_subdir = _timeline_subdir(root, path)
     return IntervalRow(
         instrument_id=instrument_id,
         interval_type=interval_type,
@@ -100,7 +103,30 @@ def _interval_from_record(path: Path, record: SourceRecord) -> IntervalRow:
         provenance=provenance,
         interval_file=path,
         interval_line=record.line_number,
+        timeline_subdir=timeline_subdir,
+        float_serial=_float_serial(timeline_subdir),
     )
+
+
+def _timeline_subdir(root: Path, path: Path) -> str | None:
+    parent = path.parent
+    try:
+        relative = parent.relative_to(root)
+    except ValueError:
+        return str(parent)
+    text = str(relative)
+    if text == ".":
+        return None
+    return text
+
+
+def _float_serial(timeline_subdir: str | None) -> str | None:
+    if timeline_subdir is None:
+        return None
+    first_part = Path(timeline_subdir).parts[0]
+    if "-T-" in first_part:
+        return first_part.split("-T-", maxsplit=1)[0]
+    return first_part or None
 
 
 def _required_string(
