@@ -12,6 +12,8 @@ from mermaid_timeline.diagnostics import TimelineValidationError
 from mermaid_timeline.pipeline import run_timeline_pipeline
 from mermaid_timeline.plotting import (
     MissingPlotlyError,
+    _ensure_html_suffix,
+    _write_instrument_availability_html,
     parse_plot_filters,
     write_availability_html,
 )
@@ -36,10 +38,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "build":
+        input_root = Path(args.input)
+        output_root = Path(args.output) if args.output is not None else input_root
         try:
             summary = run_timeline_pipeline(
-                Path(args.input),
-                Path(args.output),
+                input_root,
+                output_root,
                 validation=args.validation,
             )
         except TimelineValidationError as exc:
@@ -63,37 +67,77 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "plot":
         input_root = Path(args.input)
-        output = Path(args.output)
-        print(
-            f"mermaid-timeline: plotting {input_root} -> {output}",
-            file=sys.stderr,
+        filters = parse_plot_filters(
+            instrument_ids=args.instrument_id,
+            start_time=args.start_time,
+            end_time=args.end_time,
         )
         try:
-            count = write_availability_html(
-                input_root,
-                output,
-                filters=parse_plot_filters(
-                    instrument_ids=args.instrument_id,
-                    start_time=args.start_time,
-                    end_time=args.end_time,
-                ),
-            )
+            if args.combined:
+                output = _combined_plot_output(input_root, args.output)
+                print(
+                    f"mermaid-timeline: plotting combined {input_root} -> {output}",
+                    file=sys.stderr,
+                )
+                count = write_availability_html(input_root, output, filters=filters)
+                print(
+                    json.dumps(
+                        {"intervals": count, "output": str(output)},
+                        sort_keys=True,
+                    )
+                )
+            else:
+                output = Path(args.output) if args.output is not None else None
+                output_label = output if output is not None else "input directories"
+                print(
+                    f"mermaid-timeline: plotting per-instrument "
+                    f"{input_root} -> {output_label}",
+                    file=sys.stderr,
+                )
+                reports = _write_instrument_availability_html(
+                    input_root,
+                    output,
+                    filters=filters,
+                )
+                print(
+                    json.dumps(
+                        {
+                            "intervals": sum(
+                                report.interval_count for report in reports
+                            ),
+                            "outputs": [
+                                {
+                                    "instrument_id": report.instrument_id,
+                                    "intervals": report.interval_count,
+                                    "output": str(report.output),
+                                }
+                                for report in reports
+                            ],
+                            "reports": len(reports),
+                        },
+                        sort_keys=True,
+                    )
+                )
         except MissingPlotlyError as exc:
             print(f"mermaid-timeline: {exc}", file=sys.stderr)
             return 1
         except ValueError as exc:
             print(f"mermaid-timeline: plotting failed: {exc}", file=sys.stderr)
             return 1
-        print(
-            json.dumps(
-                {"intervals": count, "output": str(output)},
-                sort_keys=True,
-            )
-        )
         return 0
 
     parser.print_help(sys.stderr)
     return 2
+
+
+def _combined_plot_output(input_root: Path, output: str | None) -> Path:
+    if output is None:
+        return input_root / "timeline.html"
+
+    output_path = Path(output)
+    if output_path.exists() and output_path.is_dir():
+        return output_path / "timeline.html"
+    return _ensure_html_suffix(output_path)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -118,8 +162,7 @@ def _build_parser() -> argparse.ArgumentParser:
     build.add_argument(
         "-o",
         "--output",
-        required=True,
-        help="directory where timeline JSONL outputs will be written",
+        help="directory where timeline JSONL outputs will be written (default: input)",
     )
     build.add_argument(
         "--validation",
@@ -142,8 +185,15 @@ def _build_parser() -> argparse.ArgumentParser:
     plot.add_argument(
         "-o",
         "--output",
-        required=True,
-        help="self-contained HTML report path",
+        help=(
+            "output directory for per-instrument reports; with --combined, "
+            "self-contained HTML report path (default: input)"
+        ),
+    )
+    plot.add_argument(
+        "--combined",
+        action="store_true",
+        help="write one merged HTML report for all selected instruments",
     )
     plot.add_argument(
         "--instrument-id",

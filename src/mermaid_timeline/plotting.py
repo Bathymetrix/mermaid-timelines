@@ -10,6 +10,8 @@ from typing import Iterable, Sequence
 from mermaid_timeline._time import parse_timestamp
 from mermaid_timeline.interval_reader import IntervalRow, read_interval_rows
 
+_HTML_SUFFIXES = {".htm", ".html"}
+
 
 class MissingPlotlyError(RuntimeError):
     """Raised when the optional Plotly dependency is unavailable."""
@@ -20,6 +22,13 @@ class PlotFilters:
     instrument_ids: tuple[str, ...] = ()
     start_time: datetime | None = None
     end_time: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _PlotReport:
+    instrument_id: str
+    interval_count: int
+    output: Path
 
 
 def parse_plot_filters(
@@ -54,8 +63,86 @@ def write_availability_html(
     go, offline_plot = _load_plotly()
     filters = filters or PlotFilters()
     intervals = _filter_intervals(read_interval_rows(input_root), filters)
-    figure = _build_figure(intervals, go)
+    _write_availability_html(
+        intervals,
+        _ensure_html_suffix(output),
+        go=go,
+        offline_plot=offline_plot,
+    )
+    return len(intervals)
 
+
+def _write_instrument_availability_html(
+    input_root: Path,
+    output: Path | None = None,
+    *,
+    filters: PlotFilters | None = None,
+) -> list[_PlotReport]:
+    """Write one self-contained Plotly HTML availability report per instrument."""
+
+    go, offline_plot = _load_plotly()
+    filters = filters or PlotFilters()
+    root = input_root.resolve()
+    intervals = _filter_intervals(read_interval_rows(root), filters)
+    groups = _group_by_instrument(intervals)
+    output_file = _single_instrument_output_file(output)
+    if output_file is not None and len(groups) != 1:
+        raise ValueError(
+            "--output may be an HTML file only when one instrument is selected; "
+            "pass a directory or use --combined"
+        )
+
+    reports: list[_PlotReport] = []
+    used_outputs: set[Path] = set()
+    for instrument_id, instrument_intervals in groups.items():
+        if output_file is not None:
+            report_path = output_file
+        else:
+            output_dir = (
+                output
+                if output is not None
+                else _default_report_directory(root, instrument_intervals)
+            )
+            report_path = output_dir / _instrument_report_filename(instrument_id)
+
+        report_path = _ensure_html_suffix(report_path)
+        resolved_report_path = report_path.resolve()
+        if resolved_report_path in used_outputs:
+            raise ValueError(f"multiple instruments resolve to output {report_path}")
+        used_outputs.add(resolved_report_path)
+        _write_availability_html(
+            instrument_intervals,
+            report_path,
+            go=go,
+            offline_plot=offline_plot,
+        )
+        reports.append(
+            _PlotReport(
+                instrument_id=instrument_id,
+                interval_count=len(instrument_intervals),
+                output=report_path,
+            )
+        )
+
+    return reports
+
+
+def _ensure_html_suffix(path: Path) -> Path:
+    if path.suffix.lower() in _HTML_SUFFIXES:
+        return path
+    if path.suffix:
+        return path.with_name(f"{path.name}.html")
+    return path.with_suffix(".html")
+
+
+def _write_availability_html(
+    intervals: Sequence[IntervalRow],
+    output: Path,
+    *,
+    go: object,
+    offline_plot: object,
+) -> None:
+    figure = _build_figure(intervals, go)
     output.parent.mkdir(parents=True, exist_ok=True)
     html = offline_plot(
         figure,
@@ -64,7 +151,6 @@ def write_availability_html(
         auto_open=False,
     )
     output.write_text(_html_document(html), encoding="utf-8")
-    return len(intervals)
 
 
 def _load_plotly() -> tuple[object, object]:
@@ -95,6 +181,36 @@ def _filter_intervals(
             continue
         selected.append(interval)
     return selected
+
+
+def _group_by_instrument(
+    intervals: Sequence[IntervalRow],
+) -> dict[str, list[IntervalRow]]:
+    grouped: dict[str, list[IntervalRow]] = {}
+    for interval in intervals:
+        grouped.setdefault(interval.instrument_id, []).append(interval)
+    return dict(sorted(grouped.items()))
+
+
+def _single_instrument_output_file(output: Path | None) -> Path | None:
+    if output is not None and output.suffix.lower() in _HTML_SUFFIXES:
+        return output
+    return None
+
+
+def _default_report_directory(root: Path, intervals: Sequence[IntervalRow]) -> Path:
+    parents = {interval.interval_file.parent.resolve() for interval in intervals}
+    if len(parents) == 1:
+        return next(iter(parents))
+    return root
+
+
+def _instrument_report_filename(instrument_id: str) -> str:
+    safe_id = "".join(
+        character if character.isalnum() or character in "._-" else "_"
+        for character in instrument_id.strip()
+    )
+    return f"timeline-{safe_id or 'unknown'}.html"
 
 
 def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
