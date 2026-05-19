@@ -28,8 +28,8 @@ Each output is a flat JSONL stream with one interval object per line:
 
 ```bash
 mermaid-timeline build \
-  --input-root /path/to/mermaid-records/output \
-  --output-root /path/to/timeline/output \
+  --input /path/to/mermaid-records/output \
+  --output /path/to/timeline/output \
   --validation strict
 ```
 
@@ -55,13 +55,13 @@ Then create a self-contained Plotly availability report:
 
 ```bash
 mermaid-timeline plot \
-  --input-root /path/to/timeline/output \
+  --input /path/to/timeline/output \
   --output timeline.html
 ```
 
 The report draws one horizontal lane per `instrument_id`, distinguishes `buf`,
 `det`, and `req` intervals, and marks `open_unknown` ends as open-ended in the
-visual styling and hover text. It recursively scans the input root for
+visual styling and hover text. It recursively scans the input directory for
 `buffer_intervals.jsonl` and `detreq_intervals.jsonl`, and hover text includes
 the source timeline subdirectory plus the inferred float serial when outputs use
 the usual `467.174-T-0100` directory naming pattern.
@@ -70,7 +70,7 @@ Optional filters:
 
 ```bash
 mermaid-timeline plot \
-  --input-root /path/to/timeline/output \
+  --input /path/to/timeline/output \
   --output timeline-0100.html \
   --instrument-id 0100 \
   --start-time 2023-01-01T00:00:00Z \

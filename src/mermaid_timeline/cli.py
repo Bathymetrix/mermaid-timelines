@@ -38,8 +38,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "build":
         try:
             summary = run_timeline_pipeline(
-                Path(args.input_root),
-                Path(args.output_root),
+                Path(args.input),
+                Path(args.output),
                 validation=args.validation,
             )
         except TimelineValidationError as exc:
@@ -62,7 +62,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "plot":
-        input_root = Path(args.input_root)
+        input_root = Path(args.input)
         output = Path(args.output)
         print(
             f"mermaid-timeline: plotting {input_root} -> {output}",
@@ -111,13 +111,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     build.add_argument(
         "-i",
-        "--input-root",
+        "--input",
         required=True,
-        help="normalized mermaid-records output root",
+        help="normalized mermaid-records output directory",
     )
     build.add_argument(
         "-o",
-        "--output-root",
+        "--output",
         required=True,
         help="directory where timeline JSONL outputs will be written",
     )
@@ -135,9 +135,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     plot.add_argument(
         "-i",
-        "--input-root",
+        "--input",
         required=True,
-        help="mermaid-timeline output root containing interval JSONL files",
+        help="mermaid-timeline output directory containing interval JSONL files",
     )
     plot.add_argument(
         "-o",

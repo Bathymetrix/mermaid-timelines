@@ -60,9 +60,9 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "build",
-                        "--input-root",
+                        "--input",
                         str(tmp_path / "records"),
-                        "--output-root",
+                        "--output",
                         str(output_root),
                     ]
                 )
@@ -116,9 +116,9 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "build",
-                        "--input-root",
+                        "--input",
                         str(tmp_path / "records"),
-                        "--output-root",
+                        "--output",
                         str(output_root),
                         "--validation",
                         "diagnostic",
@@ -160,9 +160,9 @@ class CliTests(unittest.TestCase):
                 main(["build", "--help"])
 
         self.assertEqual(cm.exception.code, 0)
-        self.assertIn("-i, --input-root INPUT_ROOT", output.getvalue())
-        self.assertIn("-o, --output-root OUTPUT_ROOT", output.getvalue())
-        self.assertNotIn("-i INPUT_ROOT, --input-root INPUT_ROOT", output.getvalue())
+        self.assertIn("-i, --input INPUT", output.getvalue())
+        self.assertIn("-o, --output OUTPUT", output.getvalue())
+        self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
 
     def test_cli_plot_help_succeeds(self) -> None:
         output = io.StringIO()
@@ -171,10 +171,10 @@ class CliTests(unittest.TestCase):
                 main(["plot", "--help"])
 
         self.assertEqual(cm.exception.code, 0)
-        self.assertIn("--input-root", output.getvalue())
+        self.assertIn("--input", output.getvalue())
         self.assertIn("--instrument-id", output.getvalue())
-        self.assertIn("-i, --input-root INPUT_ROOT", output.getvalue())
-        self.assertNotIn("-i INPUT_ROOT, --input-root INPUT_ROOT", output.getvalue())
+        self.assertIn("-i, --input INPUT", output.getvalue())
+        self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
 
     def test_cli_plot_writes_html_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
@@ -241,7 +241,7 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "plot",
-                        "--input-root",
+                        "--input",
                         str(tmp_path / "timeline"),
                         "--output",
                         str(report_path),
@@ -297,7 +297,7 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "plot",
-                        "--input-root",
+                        "--input",
                         str(tmp_path / "timeline"),
                         "--output",
                         str(report_path),
@@ -347,7 +347,7 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "plot",
-                        "--input-root",
+                        "--input",
                         str(tmp_path / "timeline"),
                         "--output",
                         str(report_path),
@@ -379,7 +379,7 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "plot",
-                        "--input-root",
+                        "--input",
                         str(tmp_path),
                         "--output",
                         str(report_path),
@@ -405,9 +405,9 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "build",
-                        "--input-root",
+                        "--input",
                         str(tmp_path / "records"),
-                        "--output-root",
+                        "--output",
                         str(tmp_path / "timeline"),
                     ]
                 )
@@ -457,9 +457,9 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "build",
-                        "--input-root",
+                        "--input",
                         str(tmp_path / "records"),
-                        "--output-root",
+                        "--output",
                         str(tmp_path / "timeline"),
                     ]
                 )
@@ -499,7 +499,7 @@ class CliTests(unittest.TestCase):
                 exit_code = main(
                     [
                         "plot",
-                        "--input-root",
+                        "--input",
                         str(tmp_path / "timeline"),
                         "--output",
                         str(tmp_path / "timeline.html"),

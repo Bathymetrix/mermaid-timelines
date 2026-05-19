@@ -34,7 +34,7 @@ class IntervalRow:
 
 
 def read_interval_rows(input_root: Path) -> list[IntervalRow]:
-    """Read timeline interval products below an output root."""
+    """Read timeline interval products below an output directory."""
 
     root = input_root.resolve()
     intervals: list[IntervalRow] = []
