@@ -228,6 +228,12 @@ def _plot_interval_directories(
     if not root.is_dir():
         raise ValueError(f"--input must be a directory: {root}")
 
+    root_instrument_name = maybe_parse_instrument_name(root.name)
+    if root_instrument_name is not None and _has_interval_product(root):
+        directory = _IntervalDirectory(root, root_instrument_name)
+        _validate_single_serial_input(directory, filters)
+        return (directory,)
+
     if filters.instrument_serial is not None:
         instrument_name = parse_instrument_name(filters.instrument_serial)
         interval_dir = root / filters.instrument_serial
@@ -253,11 +259,43 @@ def _plot_interval_directories(
             )
         return tuple(matches)
 
-    return tuple(
+    interval_dirs = tuple(
         _IntervalDirectory(path.resolve(), maybe_parse_instrument_name(path.name))
         for path in sorted(root.iterdir())
         if path.is_dir() and _has_interval_product(path)
     )
+    if not interval_dirs:
+        raise ValueError(
+            f"no interval JSONL files found under {root}; pass a timeline output "
+            "root containing instrument serial subdirectories, or pass one "
+            "instrument serial directory directly"
+        )
+    return interval_dirs
+
+
+def _validate_single_serial_input(
+    interval_dir: _IntervalDirectory,
+    filters: PlotFilters,
+) -> None:
+    instrument_name = interval_dir.instrument_name
+    if instrument_name is None:
+        return
+    if (
+        filters.instrument_serial is not None
+        and filters.instrument_serial != instrument_name.serial
+    ):
+        raise ValueError(
+            f"--instrument-serial {filters.instrument_serial!r} does not match "
+            f"input serial directory {instrument_name.serial!r}"
+        )
+    if (
+        filters.instrument_id is not None
+        and filters.instrument_id != instrument_name.instrument_id
+    ):
+        raise ValueError(
+            f"--instrument-id {filters.instrument_id!r} does not match "
+            f"input serial directory instrument ID {instrument_name.instrument_id!r}"
+        )
 
 
 def _serial_directories_for_instrument_id(

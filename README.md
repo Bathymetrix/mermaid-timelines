@@ -54,14 +54,22 @@ Install the reporting extra when you want HTML plots:
 pip install "mermaid-timeline[plot]"
 ```
 
-Then create self-contained Plotly availability reports. By default, `plot`
-searches the input directory one level deep for serial subdirectories such as
-`467.174-T-0100`, then writes one HTML report beside each subdirectory's
-interval JSONL files:
+Then create self-contained Plotly availability reports. When `--input` is a
+timeline output root, `plot` searches one level deep for instrument serial
+subdirectories such as `467.174-T-0100`, then writes one HTML report beside each
+subdirectory's interval JSONL files:
 
 ```bash
 mermaid-timeline plot \
   --input /path/to/timeline/output
+```
+
+You can also pass one instrument serial directory directly:
+
+```bash
+mermaid-timeline plot \
+  --input /path/to/timeline/output/467.174-T-0100 \
+  --output /path/to/reports/T0100_data_intervals.html
 ```
 
 In all-stations mode, use `--output /path/to/reports` to place per-instrument
@@ -84,10 +92,11 @@ In combined mode, `--output` is an HTML file path. If it omits a suffix,
 
 Reports distinguish `buf`, `det`, and `req` intervals, and mark `open_unknown`
 ends as open-ended in the visual styling and hover text. Plotting scans the
-input directory's immediate serial subdirectories for
-`buffer_intervals.jsonl` and `detreq_intervals.jsonl`, and hover text includes
-the source timeline subdirectory plus the inferred float serial when outputs use
-the usual `467.174-T-0100` directory naming pattern.
+input directory's immediate instrument serial subdirectories, or the input
+directory itself when it is an instrument serial directory, for
+`buffer_intervals.jsonl` and `detreq_intervals.jsonl`. Hover text includes the
+source timeline subdirectory plus the inferred float serial when outputs use the
+usual `467.174-T-0100` directory naming pattern.
 
 Optional filters:
 

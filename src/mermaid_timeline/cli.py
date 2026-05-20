@@ -181,14 +181,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "-i",
         "--input",
         required=True,
-        help="mermaid-timeline output directory containing interval JSONL files",
+        help=(
+            "timeline output root containing instrument serial subdirectories, "
+            "or one instrument serial directory"
+        ),
     )
     plot.add_argument(
         "-o",
         "--output",
         help=(
-            "output directory for per-instrument reports; with --combined, "
-            "self-contained HTML report path (default: input)"
+            "output directory for per-instrument reports; with --combined or a "
+            "single-station input/filter, self-contained HTML report path "
+            "(default: input)"
         ),
     )
     plot.add_argument(

@@ -368,6 +368,90 @@ class CliTests(unittest.TestCase):
             self.assertIn("T0100", second_html)
             self.assertNotIn("R0065", second_html)
 
+    def test_cli_plot_accepts_single_instrument_serial_input_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            tmp_path = Path(tmp_name)
+            input_dir = tmp_path / "timeline" / "452.020-P-21"
+            _write_jsonl(
+                input_dir / "detreq_intervals.jsonl",
+                [
+                    {
+                        "instrument_id": "P0021",
+                        "interval_type": "det",
+                        "start_time": "2024-02-07T22:47:22Z",
+                        "end_time": "2024-02-07T22:47:23Z",
+                        "start_boundary": "closed",
+                        "end_boundary": "closed",
+                    }
+                ],
+            )
+
+            report_path = tmp_path / "reports" / "P0021_data_intervals.html"
+            output = io.StringIO()
+            with patch(
+                "mermaid_timeline.plotting._load_plotly",
+                return_value=(_FakeGo, _fake_plot),
+            ), redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "plot",
+                        "--input",
+                        str(input_dir),
+                        "--output",
+                        str(report_path),
+                    ]
+                )
+
+            summary = json.loads(output.getvalue())
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(summary["intervals"], 1)
+            self.assertEqual(summary["reports"], 1)
+            self.assertEqual(summary["outputs"][0]["instrument_id"], "P0021")
+            self.assertEqual(summary["outputs"][0]["output"], str(report_path))
+            self.assertIn("P0021", report_path.read_text(encoding="utf-8"))
+
+    def test_cli_plot_single_instrument_input_rejects_mismatched_selector(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            tmp_path = Path(tmp_name)
+            input_dir = tmp_path / "timeline" / "452.020-P-21"
+            _write_jsonl(
+                input_dir / "detreq_intervals.jsonl",
+                [
+                    {
+                        "instrument_id": "P0021",
+                        "interval_type": "det",
+                        "start_time": "2024-02-07T22:47:22Z",
+                        "end_time": "2024-02-07T22:47:23Z",
+                        "start_boundary": "closed",
+                        "end_boundary": "closed",
+                    }
+                ],
+            )
+
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                exit_code = main(
+                    [
+                        "plot",
+                        "--input",
+                        str(input_dir),
+                        "--instrument-id",
+                        "P0022",
+                    ]
+                )
+
+            self.assertEqual(exit_code, 1)
+            self.assertIn("does not match input serial directory", stderr.getvalue())
+
+    def test_cli_plot_reports_no_interval_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                exit_code = main(["plot", "--input", tmp_name])
+
+            self.assertEqual(exit_code, 1)
+            self.assertIn("no interval JSONL files found", stderr.getvalue())
+
     def test_cli_plot_instrument_filter_reduces_html_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
