@@ -13,6 +13,14 @@ Guidance for coding agents working in this repository.
 
 AGENTS should keep future namespace consolidation in mind during all implementation and API decisions.
 
+## Instrument Terminology
+
+- Refer to full names such as `467.174-T-0100` as the **instrument serial**.
+- Refer to canonical 5-character station names such as `T0100` as the
+  **instrument ID**.
+- Keep this distinction clear in CLI flags, schema/docs, tests, diagnostics,
+  commit messages, and user-facing explanations.
+
 This project may eventually become part of a larger unified namespace layout such as:
 
 ```text
