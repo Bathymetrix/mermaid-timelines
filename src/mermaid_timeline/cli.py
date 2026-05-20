@@ -67,12 +67,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "plot":
         input_root = Path(args.input)
-        filters = parse_plot_filters(
-            instrument_ids=args.instrument_id,
-            start_time=args.start_time,
-            end_time=args.end_time,
-        )
         try:
+            filters = parse_plot_filters(
+                instrument_id=args.instrument_id,
+                instrument_serial=args.instrument_serial,
+                start_time=args.start_time,
+                end_time=args.end_time,
+            )
             if args.combined:
                 output = _combined_plot_output(input_root, args.output)
                 print(
@@ -195,11 +196,14 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="write one merged HTML report for all selected instruments",
     )
-    plot.add_argument(
+    instrument_selector = plot.add_mutually_exclusive_group()
+    instrument_selector.add_argument(
         "--instrument-id",
-        action="append",
-        default=[],
-        help="instrument ID to include; repeat to include multiple instruments",
+        help="5-character station name to include, such as T0100",
+    )
+    instrument_selector.add_argument(
+        "--instrument-serial",
+        help="full instrument serial subdirectory to include, such as 467.174-T-0100",
     )
     plot.add_argument(
         "--start-time",

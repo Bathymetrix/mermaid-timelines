@@ -55,7 +55,7 @@ Output shape:
     "package": "mermaid-timeline",
     "version": "0.1.0"
   },
-  "instrument_id": "0100",
+  "instrument_id": "T0100",
   "interval_type": "buf",
   "start_time": "2023-11-20T10:00:00Z",
   "end_time": null,
@@ -96,7 +96,7 @@ Diagnostic shape:
   "records_file": "log_acquisition_records.jsonl",
   "record_line": 1,
   "issue_time": "2023-11-20T10:00:00Z",
-  "instrument_id": "0100",
+  "instrument_id": "T0100",
   "source_file": "0100_acq.LOG"
 }
 ```
@@ -112,7 +112,7 @@ Fields:
   or `null` if unavailable. BUF transition warnings use normalized UTC
   `record_time`; other diagnostics use the source row's `record_time` or `date`
   value when present.
-- `instrument_id`: source instrument ID, or `null` if unavailable.
+- `instrument_id`: canonical source instrument/station ID, or `null` if unavailable.
 - `source_file`: upstream source basename, or `null` if unavailable.
 
 ### BUF State Machine
@@ -163,7 +163,7 @@ Output shape:
     "package": "mermaid-timeline",
     "version": "0.1.0"
   },
-  "instrument_id": "0007",
+  "instrument_id": "T0007",
   "interval_type": "det",
   "start_time": "2018-07-12T06:49:56.429681Z",
   "end_time": "2018-07-12T06:53:38.779681Z",

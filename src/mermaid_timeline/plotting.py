@@ -8,7 +8,13 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from mermaid_timeline._time import parse_timestamp
+from mermaid_timeline.instrument_name import (
+    InstrumentName,
+    maybe_parse_instrument_name,
+    parse_instrument_name,
+)
 from mermaid_timeline.interval_reader import IntervalRow, read_interval_rows
+from mermaid_timeline.pipeline import BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE
 
 _HTML_SUFFIXES = {".htm", ".html"}
 
@@ -19,9 +25,16 @@ class MissingPlotlyError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class PlotFilters:
-    instrument_ids: tuple[str, ...] = ()
+    instrument_id: str | None = None
+    instrument_serial: str | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _IntervalDirectory:
+    path: Path
+    instrument_name: InstrumentName | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,12 +46,16 @@ class _PlotReport:
 
 def parse_plot_filters(
     *,
-    instrument_ids: Sequence[str] | None = None,
+    instrument_id: str | None = None,
+    instrument_serial: str | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
 ) -> PlotFilters:
+    parsed_instrument_id = _parse_filter_instrument_id(instrument_id)
+    parsed_instrument_serial = _parse_filter_instrument_serial(instrument_serial)
     return PlotFilters(
-        instrument_ids=tuple(instrument_ids or ()),
+        instrument_id=parsed_instrument_id,
+        instrument_serial=parsed_instrument_serial,
         start_time=(
             parse_timestamp(start_time, field_name="start_time")
             if start_time is not None
@@ -60,9 +77,17 @@ def write_availability_html(
 ) -> int:
     """Write a self-contained Plotly HTML availability report."""
 
-    go, offline_plot = _load_plotly()
     filters = filters or PlotFilters()
-    intervals = _filter_intervals(read_interval_rows(input_root), filters)
+    root = input_root.resolve()
+    interval_dirs = _plot_interval_directories(root, filters)
+    intervals = _filter_intervals(
+        read_interval_rows(
+            root,
+            interval_dirs=[directory.path for directory in interval_dirs],
+        ),
+        filters,
+    )
+    go, offline_plot = _load_plotly()
     _write_availability_html(
         intervals,
         _ensure_html_suffix(output),
@@ -80,29 +105,34 @@ def _write_instrument_availability_html(
 ) -> list[_PlotReport]:
     """Write one self-contained Plotly HTML availability report per instrument."""
 
-    go, offline_plot = _load_plotly()
     filters = filters or PlotFilters()
     root = input_root.resolve()
-    intervals = _filter_intervals(read_interval_rows(root), filters)
-    groups = _group_by_instrument(intervals)
-    output_file = _single_instrument_output_file(output)
-    if output_file is not None and len(groups) != 1:
+    interval_dirs = _plot_interval_directories(root, filters)
+    output_file = _single_instrument_output_file(
+        output,
+        single_station_output=_uses_explicit_instrument_selector(filters),
+    )
+    if output_file is not None and len(interval_dirs) != 1:
         raise ValueError(
             "--output may be an HTML file only when one instrument is selected; "
             "pass a directory or use --combined"
         )
 
+    go, offline_plot = _load_plotly()
     reports: list[_PlotReport] = []
     used_outputs: set[Path] = set()
-    for instrument_id, instrument_intervals in groups.items():
+    for interval_dir in interval_dirs:
+        instrument_intervals = _filter_intervals(
+            read_interval_rows(root, interval_dirs=[interval_dir.path]),
+            filters,
+        )
+        if not instrument_intervals:
+            continue
+        instrument_id = _report_instrument_id(interval_dir, instrument_intervals)
         if output_file is not None:
             report_path = output_file
         else:
-            output_dir = (
-                output
-                if output is not None
-                else _default_report_directory(root, instrument_intervals)
-            )
+            output_dir = output if output is not None else interval_dir.path
             report_path = output_dir / _instrument_report_filename(instrument_id)
 
         report_path = _ensure_html_suffix(report_path)
@@ -125,6 +155,31 @@ def _write_instrument_availability_html(
         )
 
     return reports
+
+
+def _parse_filter_instrument_id(instrument_id: str | None) -> str | None:
+    if instrument_id is None:
+        return None
+    stripped = instrument_id.strip()
+    if len(stripped) != 5:
+        raise ValueError(
+            "--instrument-id must be a 5-character station name such as T0100"
+        )
+    return stripped
+
+
+def _parse_filter_instrument_serial(instrument_serial: str | None) -> str | None:
+    if instrument_serial is None:
+        return None
+    stripped = instrument_serial.strip()
+    try:
+        parse_instrument_name(stripped)
+    except ValueError as exc:
+        raise ValueError(
+            "--instrument-serial must be a canonical serial such as "
+            "467.174-T-0100"
+        ) from exc
+    return stripped
 
 
 def _ensure_html_suffix(path: Path) -> Path:
@@ -165,15 +220,75 @@ def _load_plotly() -> tuple[object, object]:
     return go, plot
 
 
+def _plot_interval_directories(
+    input_root: Path,
+    filters: PlotFilters,
+) -> tuple[_IntervalDirectory, ...]:
+    root = input_root.resolve()
+    if not root.is_dir():
+        raise ValueError(f"--input must be a directory: {root}")
+
+    if filters.instrument_serial is not None:
+        instrument_name = parse_instrument_name(filters.instrument_serial)
+        interval_dir = root / filters.instrument_serial
+        if not interval_dir.is_dir():
+            raise ValueError(
+                f"--instrument-serial {filters.instrument_serial!r} did not match "
+                f"a subdirectory of {root}"
+            )
+        return (_IntervalDirectory(interval_dir.resolve(), instrument_name),)
+
+    if filters.instrument_id is not None:
+        matches = _serial_directories_for_instrument_id(root, filters.instrument_id)
+        if not matches:
+            raise ValueError(
+                f"--instrument-id {filters.instrument_id!r} did not match any "
+                f"serial subdirectory of {root}"
+            )
+        if len(matches) > 1:
+            names = ", ".join(match.path.name for match in matches)
+            raise ValueError(
+                f"--instrument-id {filters.instrument_id!r} matched multiple "
+                f"serial subdirectories: {names}"
+            )
+        return tuple(matches)
+
+    return tuple(
+        _IntervalDirectory(path.resolve(), maybe_parse_instrument_name(path.name))
+        for path in sorted(root.iterdir())
+        if path.is_dir() and _has_interval_product(path)
+    )
+
+
+def _serial_directories_for_instrument_id(
+    root: Path,
+    instrument_id: str,
+) -> list[_IntervalDirectory]:
+    matches: list[_IntervalDirectory] = []
+    for path in sorted(root.iterdir()):
+        if not path.is_dir():
+            continue
+        instrument_name = maybe_parse_instrument_name(path.name)
+        if instrument_name is None:
+            continue
+        if instrument_name.instrument_id == instrument_id:
+            matches.append(_IntervalDirectory(path.resolve(), instrument_name))
+    return matches
+
+
+def _has_interval_product(path: Path) -> bool:
+    return any(
+        (path / filename).is_file()
+        for filename in (BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE)
+    )
+
+
 def _filter_intervals(
     intervals: Iterable[IntervalRow],
     filters: PlotFilters,
 ) -> list[IntervalRow]:
-    instrument_ids = set(filters.instrument_ids)
     selected: list[IntervalRow] = []
     for interval in intervals:
-        if instrument_ids and interval.instrument_id not in instrument_ids:
-            continue
         if filters.start_time is not None:
             if interval.end_time is not None and interval.end_time < filters.start_time:
                 continue
@@ -183,26 +298,34 @@ def _filter_intervals(
     return selected
 
 
-def _group_by_instrument(
-    intervals: Sequence[IntervalRow],
-) -> dict[str, list[IntervalRow]]:
-    grouped: dict[str, list[IntervalRow]] = {}
-    for interval in intervals:
-        grouped.setdefault(interval.instrument_id, []).append(interval)
-    return dict(sorted(grouped.items()))
-
-
-def _single_instrument_output_file(output: Path | None) -> Path | None:
-    if output is not None and output.suffix.lower() in _HTML_SUFFIXES:
-        return output
+def _single_instrument_output_file(
+    output: Path | None,
+    *,
+    single_station_output: bool,
+) -> Path | None:
+    if output is None:
+        return None
+    if output.exists() and output.is_dir():
+        return None
+    if output.suffix or single_station_output:
+        return _ensure_html_suffix(output)
     return None
 
 
-def _default_report_directory(root: Path, intervals: Sequence[IntervalRow]) -> Path:
-    parents = {interval.interval_file.parent.resolve() for interval in intervals}
-    if len(parents) == 1:
-        return next(iter(parents))
-    return root
+def _uses_explicit_instrument_selector(filters: PlotFilters) -> bool:
+    return filters.instrument_id is not None or filters.instrument_serial is not None
+
+
+def _report_instrument_id(
+    interval_dir: _IntervalDirectory,
+    intervals: Sequence[IntervalRow],
+) -> str:
+    if interval_dir.instrument_name is not None:
+        return interval_dir.instrument_name.instrument_id
+    interval_ids = sorted({interval.instrument_id for interval in intervals})
+    if len(interval_ids) == 1:
+        return interval_ids[0]
+    return interval_dir.path.name
 
 
 def _instrument_report_filename(instrument_id: str) -> str:
@@ -210,7 +333,7 @@ def _instrument_report_filename(instrument_id: str) -> str:
         character if character.isalnum() or character in "._-" else "_"
         for character in instrument_id.strip()
     )
-    return f"timeline-{safe_id or 'unknown'}.html"
+    return f"{safe_id or 'unknown'}_data_intervals.html"
 
 
 def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:

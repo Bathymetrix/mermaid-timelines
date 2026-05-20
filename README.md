@@ -55,16 +55,19 @@ pip install "mermaid-timeline[plot]"
 ```
 
 Then create self-contained Plotly availability reports. By default, `plot`
-writes one HTML report per `instrument_id` beside the input interval JSONL files:
+searches the input directory one level deep for serial subdirectories such as
+`467.174-T-0100`, then writes one HTML report beside each subdirectory's
+interval JSONL files:
 
 ```bash
 mermaid-timeline plot \
   --input /path/to/timeline/output
 ```
 
-Use `--output /path/to/reports` to place per-instrument reports in a single
-directory. Per-instrument filenames are generated as
-`timeline-<instrument_id>.html`.
+In all-stations mode, use `--output /path/to/reports` to place per-instrument
+reports in a single directory. Per-instrument filenames are generated as
+`<instrument_id>_data_intervals.html`, where `instrument_id` is the canonical
+5-character station name, such as `T0100`.
 
 Use `--combined` to merge all float timelines into single report:
 
@@ -80,8 +83,8 @@ In combined mode, `--output` is an HTML file path. If it omits a suffix,
 `timeline.html` under the input directory.
 
 Reports distinguish `buf`, `det`, and `req` intervals, and mark `open_unknown`
-ends as open-ended in the visual styling and hover text. Plotting recursively
-scans the input directory for
+ends as open-ended in the visual styling and hover text. Plotting scans the
+input directory's immediate serial subdirectories for
 `buffer_intervals.jsonl` and `detreq_intervals.jsonl`, and hover text includes
 the source timeline subdirectory plus the inferred float serial when outputs use
 the usual `467.174-T-0100` directory naming pattern.
@@ -91,10 +94,15 @@ Optional filters:
 ```bash
 mermaid-timeline plot \
   --input /path/to/timeline/output \
-  --instrument-id 0100 \
+  --instrument-id T0100 \
   --start-time 2023-01-01T00:00:00Z \
   --end-time 2024-01-01T00:00:00Z
 ```
+
+`--instrument-id` accepts the canonical 5-character station name and resolves it
+to one matching serial subdirectory. To select by exact subdirectory name, use
+`--instrument-serial 467.174-T-0100`. If `--output` is a file path for a single
+selected station, `.html` is appended when needed.
 
 ## State-Machine Summary
 

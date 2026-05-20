@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Sequence
 
 from mermaid_timeline._time import parse_timestamp
+from mermaid_timeline.instrument_name import maybe_parse_instrument_name
 from mermaid_timeline.pipeline import BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE
 from mermaid_timeline.records import (
     JsonObject,
@@ -33,13 +35,25 @@ class IntervalRow:
     float_serial: str | None
 
 
-def read_interval_rows(input_root: Path) -> list[IntervalRow]:
+def read_interval_rows(
+    input_root: Path,
+    *,
+    interval_dirs: Sequence[Path] | None = None,
+) -> list[IntervalRow]:
     """Read timeline interval products below an output directory."""
 
     root = input_root.resolve()
     intervals: list[IntervalRow] = []
-    for filename in (BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE):
-        for path in sorted(root.rglob(filename)):
+    directories = (
+        tuple(_default_interval_dirs(root))
+        if interval_dirs is None
+        else tuple(Path(directory).resolve() for directory in interval_dirs)
+    )
+    for directory in directories:
+        for filename in (BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE):
+            path = directory / filename
+            if not path.exists():
+                continue
             intervals.extend(_read_file(root, path))
     intervals.sort(
         key=lambda row: (
@@ -54,6 +68,23 @@ def read_interval_rows(input_root: Path) -> list[IntervalRow]:
 
 def _read_file(root: Path, path: Path) -> list[IntervalRow]:
     return [_interval_from_record(root, path, record) for record in iter_jsonl(path)]
+
+
+def _default_interval_dirs(root: Path) -> list[Path]:
+    if not root.is_dir():
+        raise ValueError(f"--input must be a directory: {root}")
+    return [
+        path
+        for path in sorted(root.iterdir())
+        if path.is_dir() and _has_interval_product(path)
+    ]
+
+
+def _has_interval_product(path: Path) -> bool:
+    return any(
+        (path / filename).is_file()
+        for filename in (BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE)
+    )
 
 
 def _interval_from_record(root: Path, path: Path, record: SourceRecord) -> IntervalRow:
@@ -124,8 +155,9 @@ def _float_serial(timeline_subdir: str | None) -> str | None:
     if timeline_subdir is None:
         return None
     first_part = Path(timeline_subdir).parts[0]
-    if "-T-" in first_part:
-        return first_part.split("-T-", maxsplit=1)[0]
+    instrument_name = maybe_parse_instrument_name(first_part)
+    if instrument_name is not None:
+        return instrument_name.kinst
     return first_part or None
 
 
