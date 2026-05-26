@@ -1,6 +1,6 @@
 # mermaid-timeline Schema
 
-Current schema version: `1.0.0`
+Current schema version: `0.1.0`
 
 All products are JSONL streams. There is no top-level document wrapper.
 
@@ -28,13 +28,13 @@ Every interval record includes:
 - `end_boundary`
 - `provenance`
 
-Boundary vocabulary for `1.0.0`:
+Boundary vocabulary for `0.1.0`:
 
 - `closed`: the interval boundary timestamp is included in the known interval.
 - `open_unknown`: the true boundary is unknown and must not be inferred from the
   evidence timestamp.
 
-`interval_type` vocabulary for `1.0.0`:
+`interval_type` vocabulary for `0.1.0`:
 
 - `buf`: acquisition buffer interval synthesized from acquisition records.
 - `det`: detected MER event interval.
@@ -44,6 +44,70 @@ Boundary vocabulary for `1.0.0`:
 or rows used to synthesize the interval. BUF intervals include
 `records_file`, `start_record_line`, `end_record_line`, and `source_file`.
 DET/REQ intervals include `records_file`, `record_line`, and `source_file`.
+
+## Summary Intervals
+
+Output: `summary_intervals.jsonl`
+
+The summary stream emits one row per `instrument_id`, `bin_size`, and
+`bin_start_time`. `bin_size` is one of `day`, `week`, `month`, or `year`.
+Daily, monthly, and yearly bins use UTC calendar boundaries. Weekly bins use
+ISO-style Monday-start UTC weeks.
+
+Summary rows aggregate known BUF/DET/REQ durations from
+`buffer_intervals.jsonl` and `detreq_intervals.jsonl`. Each source interval is
+clipped into half-open bins, `[bin_start_time, bin_end_time)`, so an interval
+crossing a boundary contributes only the overlap inside each bin. Intervals
+with unknown `end_time` do not have a known duration and are not included in
+duration totals.
+
+BUF, DET, and REQ are strictly separate throughout aggregation. There is no
+combined total duration field. Overlapping intervals are not unioned; durations
+are summed independently within each interval type. Because of this,
+`duration_fraction` may exceed `1.0` when same-type intervals overlap.
+
+`interval_count` counts intervals of each type with nonzero clipped duration in
+the bin. If one interval crosses two monthly bins, it increments the relevant
+type count in both rows. Counts are diagnostic and are not necessarily additive
+across bins.
+
+Pathological timestamps, including clock-error-era values such as 1970 DET/REQ
+intervals, are summarized normally. They are not repaired, reinterpreted, or
+special-cased.
+
+Summary shape:
+
+```json
+{
+  "schema_version": "0.1.0",
+  "generated_by": {
+    "package": "mermaid-timeline",
+    "version": "0.1.0"
+  },
+  "instrument_id": "T0100",
+  "instrument_serial": "467.174-T-0100",
+  "bin_size": "day",
+  "bin_start_time": "2024-01-02T00:00:00.000000Z",
+  "bin_end_time": "2024-01-03T00:00:00.000000Z",
+  "duration_seconds": {
+    "buf": 3600.0,
+    "det": 0.0,
+    "req": 0.0
+  },
+  "interval_count": {
+    "buf": 1,
+    "det": 0,
+    "req": 0
+  },
+  "duration_fraction": {
+    "buf": 0.041666666666666664,
+    "det": 0.0,
+    "req": 0.0
+  },
+  "binning_policy": "clip_intervals_to_half_open_bins",
+  "overlap_policy": "sum_durations_without_unioning_by_interval_type"
+}
+```
 
 ## BUF Intervals
 
@@ -63,7 +127,7 @@ Output shape:
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": "0.1.0",
   "generated_by": {
     "package": "mermaid-timeline",
     "version": "0.1.0"
@@ -174,7 +238,7 @@ Output shape:
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": "0.1.0",
   "generated_by": {
     "package": "mermaid-timeline",
     "version": "0.1.0"

@@ -12,9 +12,11 @@ from mermaid_timeline.buffer import (
 from mermaid_timeline.detreq import MER_EVENT_RECORDS_FILE, build_detreq_intervals_from_records
 from mermaid_timeline.diagnostics import Diagnostic, ValidationMode
 from mermaid_timeline.records import iter_jsonl, write_jsonl
+from mermaid_timeline.summary import build_summary_intervals_from_files
 
 BUFFER_INTERVALS_FILE = "buffer_intervals.jsonl"
 DETREQ_INTERVALS_FILE = "detreq_intervals.jsonl"
+SUMMARY_INTERVALS_FILE = "summary_intervals.jsonl"
 DIAGNOSTICS_FILE = "timeline_diagnostics.jsonl"
 _JSONL_SUFFIX = ".jsonl"
 
@@ -25,6 +27,7 @@ class TimelineDirectorySummary:
     output_dir: Path
     buffer_intervals: int
     detreq_intervals: int
+    summary_intervals: int
     diagnostics: int
 
 
@@ -39,6 +42,10 @@ class TimelinePipelineSummary:
     @property
     def detreq_intervals(self) -> int:
         return sum(summary.detreq_intervals for summary in self.directories)
+
+    @property
+    def summary_intervals(self) -> int:
+        return sum(summary.summary_intervals for summary in self.directories)
 
     @property
     def diagnostics(self) -> int:
@@ -76,6 +83,7 @@ def synthesize_directory(
     diagnostics: list[Diagnostic] = []
     buffer_count = 0
     detreq_count = 0
+    summary_count = 0
     buffer_intervals = []
     detreq_intervals = []
 
@@ -107,6 +115,24 @@ def synthesize_directory(
     if detreq_intervals:
         detreq_count = write_jsonl(output_dir / DETREQ_INTERVALS_FILE, detreq_intervals)
 
+    interval_paths = [
+        output_dir / filename
+        for filename, count in (
+            (BUFFER_INTERVALS_FILE, buffer_count),
+            (DETREQ_INTERVALS_FILE, detreq_count),
+        )
+        if count
+    ]
+    if interval_paths:
+        summary_intervals = build_summary_intervals_from_files(
+            interval_paths,
+            default_instrument_serial=input_dir.name,
+        )
+        if summary_intervals:
+            summary_count = write_jsonl(
+                output_dir / SUMMARY_INTERVALS_FILE, summary_intervals
+            )
+
     if diagnostics:
         write_jsonl(
             output_dir / DIAGNOSTICS_FILE,
@@ -118,6 +144,7 @@ def synthesize_directory(
         output_dir=output_dir,
         buffer_intervals=buffer_count,
         detreq_intervals=detreq_count,
+        summary_intervals=summary_count,
         diagnostics=len(diagnostics),
     )
 

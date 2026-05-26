@@ -158,7 +158,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     build = subparsers.add_parser(
         "build",
-        help="build buffer_intervals.jsonl and detreq_intervals.jsonl",
+        help=(
+            "build buffer_intervals.jsonl, detreq_intervals.jsonl, "
+            "and summary_intervals.jsonl"
+        ),
         formatter_class=_CompactOptionHelpFormatter,
     )
     build.add_argument(

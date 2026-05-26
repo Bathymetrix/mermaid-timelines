@@ -24,10 +24,16 @@ are not present. When both forms exist, the suffixed v2 files are used.
 
 ## Outputs
 
-Each output is a flat JSONL stream with one interval object per line:
+Each output is a flat JSONL stream:
 
 - `buffer_intervals.jsonl`
 - `detreq_intervals.jsonl`
+- `summary_intervals.jsonl`
+
+`summary_intervals.jsonl` aggregates known BUF/DET/REQ interval durations into
+UTC day, ISO Monday-start week, month, and year bins. Intervals are clipped to
+half-open bin boundaries, and BUF, DET, and REQ totals remain separate. Overlaps
+within the same interval type are summed rather than unioned.
 
 ## CLI
 

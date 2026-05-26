@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from mermaid_timeline.pipeline import (
+    SUMMARY_INTERVALS_FILE,
     _discover_record_dirs,
     _record_filename_parts,
     _record_files_for_family,
+    synthesize_directory,
 )
 
 
@@ -53,6 +56,56 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(
                 _record_files_for_family(root, "log_acquisition_records"), [suffixed]
             )
+
+    def test_synthesize_directory_writes_summary_intervals_jsonl(self) -> None:
+        with TemporaryDirectory() as tmp_name:
+            root = Path(tmp_name)
+            input_dir = root / "records" / "467.174-T-0100"
+            output_dir = root / "timeline" / "467.174-T-0100"
+            input_dir.mkdir(parents=True)
+            _write_jsonl(
+                input_dir / "log_acquisition_records.467.174-T-0100.jsonl",
+                [
+                    {
+                        "instrument_id": "T0100",
+                        "record_time": "2024-01-02T00:00:00Z",
+                        "acquisition_state": "started",
+                        "acquisition_evidence_kind": "transition",
+                    },
+                    {
+                        "instrument_id": "T0100",
+                        "record_time": "2024-01-02T01:00:00Z",
+                        "acquisition_state": "stopped",
+                        "acquisition_evidence_kind": "transition",
+                    },
+                ],
+            )
+
+            summary = synthesize_directory(input_dir, output_dir)
+
+            rows = _read_jsonl(output_dir / SUMMARY_INTERVALS_FILE)
+            self.assertGreater(summary.summary_intervals, 0)
+            self.assertEqual(summary.summary_intervals, len(rows))
+            day_rows = [row for row in rows if row["bin_size"] == "day"]
+            self.assertEqual(len(day_rows), 1)
+            self.assertEqual(day_rows[0]["duration_seconds"]["buf"], 3600.0)
+            self.assertEqual(day_rows[0]["instrument_serial"], "467.174-T-0100")
+
+
+def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(f"{json.dumps(row)}\n" for row in rows),
+        encoding="utf-8",
+    )
+
+
+def _read_jsonl(path: Path) -> list[dict[str, object]]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 if __name__ == "__main__":
