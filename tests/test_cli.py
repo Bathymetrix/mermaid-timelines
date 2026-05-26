@@ -354,7 +354,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("timeline_subdir: 467.174-T-0100", html)
             self.assertIn("open-ended; true end unknown", html)
 
-    def test_plot_uses_touching_det_req_buffer_y_axes(self) -> None:
+    def test_plot_overlays_intervals_with_det_on_top(self) -> None:
         figure = _build_figure(
             [
                 _interval_row("T0100", "det", "2024-02-07T22:47:22Z"),
@@ -364,20 +364,16 @@ class CliTests(unittest.TestCase):
             _FakeGo,
         )
 
-        self.assertEqual([trace.yaxis for trace in figure.data], ["y", "y2", "y3"])
+        self.assertEqual([trace.name for trace in figure.data], ["buf", "req", "det"])
+        self.assertEqual([trace.y for trace in figure.data], [["T0100", "T0100"]] * 3)
         self.assertEqual(
             [trace.line["color"] for trace in figure.data],
-            ["#1F77B4", "#D627B0", "#000000"],
+            ["#000000", "#D627B0", "#1F77B4"],
         )
-        self.assertEqual(figure.layout["yaxis"]["title"], "DET")
-        self.assertEqual(figure.layout["yaxis2"]["title"], "REQ")
-        self.assertEqual(figure.layout["yaxis3"]["title"], "BUFFER")
-        self.assertEqual(figure.layout["yaxis"]["domain"][0], 2 / 3)
-        self.assertEqual(figure.layout["yaxis"]["domain"][1], 1)
-        self.assertEqual(figure.layout["yaxis2"]["domain"][0], 1 / 3)
-        self.assertEqual(figure.layout["yaxis2"]["domain"][1], 2 / 3)
-        self.assertEqual(figure.layout["yaxis3"]["domain"][0], 0)
-        self.assertEqual(figure.layout["yaxis3"]["domain"][1], 1 / 3)
+        self.assertEqual([trace.legendrank for trace in figure.data], [2, 1, 0])
+        self.assertNotIn("yaxis2", figure.layout)
+        self.assertNotIn("yaxis3", figure.layout)
+        self.assertEqual(figure.layout["yaxis"]["title"], "Instrument ID")
 
     def test_cli_plot_defaults_to_one_html_report_per_instrument(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:

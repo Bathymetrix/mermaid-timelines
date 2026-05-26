@@ -17,11 +17,8 @@ from mermaid_timeline.interval_reader import IntervalRow, read_interval_rows
 from mermaid_timeline.pipeline import BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE
 
 _HTML_SUFFIXES = {".htm", ".html"}
-_PLOT_LANES = {
-    "det": {"axis": "y", "title": "DET", "domain": [2 / 3, 1]},
-    "req": {"axis": "y2", "title": "REQ", "domain": [1 / 3, 2 / 3]},
-    "buf": {"axis": "y3", "title": "BUFFER", "domain": [0, 1 / 3]},
-}
+_DRAW_ORDER = {"buf": 0, "req": 1, "det": 2}
+_LEGEND_ORDER = {"det": 0, "req": 1, "buf": 2}
 
 
 class MissingPlotlyError(RuntimeError):
@@ -422,14 +419,13 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
     horizon = _plot_horizon(intervals)
     figure = go.Figure()
 
-    for interval in intervals:
+    for interval in _plot_draw_order(intervals):
         is_open = interval.end_boundary == "open_unknown"
         display_end = interval.end_time if interval.end_time is not None else horizon
         if display_end <= interval.start_time:
             display_end = interval.start_time + timedelta(hours=1)
         hover = _hover_text(interval)
         color = colors.get(interval.interval_type, "#4A5568")
-        lane = _PLOT_LANES.get(interval.interval_type, _PLOT_LANES["buf"])
         dash = "dash" if is_open else "solid"
         opacity = 0.45 if is_open else 0.95
         marker = {
@@ -446,8 +442,8 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
                 marker=marker,
                 opacity=opacity,
                 name=interval.interval_type,
-                yaxis=lane["axis"],
                 legendgroup=interval.interval_type,
+                legendrank=_LEGEND_ORDER.get(interval.interval_type, 99),
                 showlegend=_first_trace_for_type(figure, interval.interval_type),
                 hoverinfo="text",
                 text=[hover, hover],
@@ -458,20 +454,7 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
         title="MERMAID Timeline Availability",
         xaxis_title="Time",
         yaxis={
-            "title": _PLOT_LANES["det"]["title"],
-            "domain": _PLOT_LANES["det"]["domain"],
-            "type": "category",
-            "autorange": "reversed",
-        },
-        yaxis2={
-            "title": _PLOT_LANES["req"]["title"],
-            "domain": _PLOT_LANES["req"]["domain"],
-            "type": "category",
-            "autorange": "reversed",
-        },
-        yaxis3={
-            "title": _PLOT_LANES["buf"]["title"],
-            "domain": _PLOT_LANES["buf"]["domain"],
+            "title": "Instrument ID",
             "type": "category",
             "autorange": "reversed",
         },
@@ -481,6 +464,16 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
         legend_title_text="Interval type",
     )
     return figure
+
+
+def _plot_draw_order(intervals: Sequence[IntervalRow]) -> list[IntervalRow]:
+    return [
+        interval
+        for _, interval in sorted(
+            enumerate(intervals),
+            key=lambda item: (_DRAW_ORDER.get(item[1].interval_type, 99), item[0]),
+        )
+    ]
 
 
 def _first_trace_for_type(figure: object, interval_type: str) -> bool:
