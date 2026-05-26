@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Iterable
 
 from mermaid_timeline._time import format_timestamp, parse_timestamp
 from mermaid_timeline.records import JsonObject, SourceRecords, iter_jsonl
@@ -15,6 +17,7 @@ BIN_SIZES = ("day", "week", "month", "year")
 INTERVAL_TYPES: tuple[IntervalType, ...] = ("buf", "det", "req")
 BINNING_POLICY = "clip_intervals_to_half_open_bins"
 OVERLAP_POLICY = "sum_durations_without_unioning_by_interval_type"
+SUMMARY_NUMERIC_PRECISION = 6
 
 
 @dataclass(slots=True)
@@ -85,12 +88,25 @@ def build_summary_intervals(
     ]
 
 
+def write_summary_jsonl(path: Path, rows: Iterable[JsonObject]) -> int:
+    """Write summary rows with stable fixed-precision numeric durations."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with path.open("w", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(_summary_json_dumps(row))
+            handle.write("\n")
+            count += 1
+    return count
+
+
 def _summary_row(key: _BinKey, totals: _BinTotals) -> JsonObject:
     instrument_id, instrument_serial, bin_size, bin_start = key
     bin_end = _next_bin_start(bin_start, bin_size)
     bin_duration_seconds = (bin_end - bin_start).total_seconds()
     duration_seconds = {
-        interval_type: totals.duration_seconds[interval_type]
+        interval_type: _round_summary_number(totals.duration_seconds[interval_type])
         for interval_type in INTERVAL_TYPES
     }
     interval_count = {
@@ -98,7 +114,9 @@ def _summary_row(key: _BinKey, totals: _BinTotals) -> JsonObject:
         for interval_type in INTERVAL_TYPES
     }
     duration_fraction = {
-        interval_type: duration_seconds[interval_type] / bin_duration_seconds
+        interval_type: _round_summary_number(
+            totals.duration_seconds[interval_type] / bin_duration_seconds
+        )
         for interval_type in INTERVAL_TYPES
     }
     return {
@@ -115,6 +133,27 @@ def _summary_row(key: _BinKey, totals: _BinTotals) -> JsonObject:
         "binning_policy": BINNING_POLICY,
         "overlap_policy": OVERLAP_POLICY,
     }
+
+
+def _round_summary_number(value: float) -> float:
+    return round(value, SUMMARY_NUMERIC_PRECISION)
+
+
+def _summary_json_dumps(value: object) -> str:
+    if isinstance(value, dict):
+        return (
+            "{"
+            + ",".join(
+                f"{json.dumps(key, ensure_ascii=True)}:{_summary_json_dumps(item)}"
+                for key, item in value.items()
+            )
+            + "}"
+        )
+    if isinstance(value, list):
+        return "[" + ",".join(_summary_json_dumps(item) for item in value) + "]"
+    if isinstance(value, float):
+        return format(value, f".{SUMMARY_NUMERIC_PRECISION}f")
+    return json.dumps(value, ensure_ascii=True, separators=(",", ":"))
 
 
 def _overlapping_bins(

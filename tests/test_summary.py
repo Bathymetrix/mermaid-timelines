@@ -60,7 +60,7 @@ class SummaryTests(unittest.TestCase):
             row["duration_seconds"], {"buf": 3600.0, "det": 0.0, "req": 0.0}
         )
         self.assertEqual(row["interval_count"], {"buf": 1, "det": 0, "req": 0})
-        self.assertEqual(row["duration_fraction"]["buf"], 3600.0 / 86400.0)
+        self.assertEqual(row["duration_fraction"]["buf"], 0.041667)
         self.assertEqual(row["schema_version"], SCHEMA_VERSION)
         self.assertEqual(row["instrument_serial"], "467.174-T-0100")
         self.assertEqual(row["binning_policy"], BINNING_POLICY)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -90,6 +91,51 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(len(day_rows), 1)
             self.assertEqual(day_rows[0]["duration_seconds"]["buf"], 3600.0)
             self.assertEqual(day_rows[0]["instrument_serial"], "467.174-T-0100")
+
+    def test_summary_intervals_emit_fixed_precision_numeric_durations(self) -> None:
+        with TemporaryDirectory() as tmp_name:
+            root = Path(tmp_name)
+            input_dir = root / "records" / "467.174-T-0100"
+            output_dir = root / "timeline" / "467.174-T-0100"
+            input_dir.mkdir(parents=True)
+            _write_jsonl(
+                input_dir / "log_acquisition_records.467.174-T-0100.jsonl",
+                [
+                    {
+                        "instrument_id": "T0100",
+                        "record_time": "2024-01-01T00:00:00Z",
+                        "acquisition_state": "started",
+                        "acquisition_evidence_kind": "transition",
+                    },
+                    {
+                        "instrument_id": "T0100",
+                        "record_time": "2024-01-08T00:00:00Z",
+                        "acquisition_state": "stopped",
+                        "acquisition_evidence_kind": "transition",
+                    },
+                ],
+            )
+
+            synthesize_directory(input_dir, output_dir)
+
+            path = output_dir / SUMMARY_INTERVALS_FILE
+            text = path.read_text(encoding="utf-8")
+            rows = _read_jsonl(path)
+            self.assertNotRegex(text, r"-?\d+(?:\.\d+)?[eE][+-]?\d+")
+            self.assertIn('"buf":604800.000000', text)
+            for field_name in ("duration_seconds", "duration_fraction"):
+                sections = re.findall(rf'"{field_name}":\{{([^}}]+)\}}', text)
+                self.assertGreater(len(sections), 0)
+                for section in sections:
+                    values = re.findall(r':(-?\d+\.\d+)', section)
+                    self.assertEqual(len(values), 3)
+                    for value in values:
+                        self.assertRegex(value, r"^-?\d+\.\d{6}$")
+
+            for row in rows:
+                for field_name in ("duration_seconds", "duration_fraction"):
+                    for value in row[field_name].values():
+                        self.assertIsInstance(value, float)
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:

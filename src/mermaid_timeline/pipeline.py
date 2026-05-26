@@ -12,7 +12,10 @@ from mermaid_timeline.buffer import (
 from mermaid_timeline.detreq import MER_EVENT_RECORDS_FILE, build_detreq_intervals_from_records
 from mermaid_timeline.diagnostics import Diagnostic, ValidationMode
 from mermaid_timeline.records import iter_jsonl, write_jsonl
-from mermaid_timeline.summary import build_summary_intervals_from_files
+from mermaid_timeline.summary import (
+    build_summary_intervals_from_files,
+    write_summary_jsonl,
+)
 
 BUFFER_INTERVALS_FILE = "buffer_intervals.jsonl"
 DETREQ_INTERVALS_FILE = "detreq_intervals.jsonl"
@@ -129,7 +132,7 @@ def synthesize_directory(
             default_instrument_serial=input_dir.name,
         )
         if summary_intervals:
-            summary_count = write_jsonl(
+            summary_count = write_summary_jsonl(
                 output_dir / SUMMARY_INTERVALS_FILE, summary_intervals
             )
 
