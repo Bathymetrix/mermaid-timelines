@@ -30,4 +30,4 @@ def format_timestamp(value: datetime | None) -> str | None:
     if value is None:
         return None
     utc_value = value.astimezone(timezone.utc)
-    return utc_value.isoformat().replace("+00:00", "Z")
+    return utc_value.strftime("%Y-%m-%dT%H:%M:%S.%fZ")

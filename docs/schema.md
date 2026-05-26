@@ -37,7 +37,10 @@ DET/REQ intervals include `records_file`, `record_line`, and `source_file`.
 
 ## BUF Intervals
 
-Input: `log_acquisition_records.jsonl`
+Input: `log_acquisition_records.<instrument_serial>.jsonl`
+
+Legacy unsuffixed `log_acquisition_records.jsonl` inputs are also accepted when
+the suffixed v2 file is not present.
 
 Required input fields:
 
@@ -57,16 +60,16 @@ Output shape:
   },
   "instrument_id": "T0100",
   "interval_type": "buf",
-  "start_time": "2023-11-20T10:00:00Z",
+  "start_time": "2023-11-20T10:00:00.000000Z",
   "end_time": null,
   "start_boundary": "closed",
   "end_boundary": "open_unknown",
   "start_evidence_kind": "transition",
   "end_evidence_kind": "assertion",
-  "start_evidence_time": "2023-11-20T10:00:00Z",
-  "end_evidence_time": "2023-11-20T12:45:10Z",
+  "start_evidence_time": "2023-11-20T10:00:00.000000Z",
+  "end_evidence_time": "2023-11-20T12:45:10.000000Z",
   "provenance": {
-    "records_file": "log_acquisition_records.jsonl",
+    "records_file": "log_acquisition_records.467.174-T-0100.jsonl",
     "start_record_line": 1550,
     "end_record_line": 1551,
     "source_file": "0100_acq.LOG"
@@ -93,9 +96,9 @@ Diagnostic shape:
   "severity": "warning",
   "code": "orphan_stop_transition",
   "message": "stopped transition encountered with no active interval",
-  "records_file": "log_acquisition_records.jsonl",
+  "records_file": "log_acquisition_records.467.174-T-0100.jsonl",
   "record_line": 1,
-  "issue_time": "2023-11-20T10:00:00Z",
+  "issue_time": "2023-11-20T10:00:00.000000Z",
   "instrument_id": "T0100",
   "source_file": "0100_acq.LOG"
 }
@@ -137,7 +140,10 @@ Rules:
 
 ## DET / REQ Intervals
 
-Input: `mer_event_records.jsonl`
+Input: `mer_event_records.<instrument_serial>.jsonl`
+
+Legacy unsuffixed `mer_event_records.jsonl` inputs are also accepted when the
+suffixed v2 file is not present.
 
 DET classification:
 
@@ -172,7 +178,7 @@ Output shape:
   "sampling_rate_hz": 20.0,
   "sample_count": 4448,
   "provenance": {
-    "records_file": "mer_event_records.jsonl",
+    "records_file": "mer_event_records.467.174-T-0100.jsonl",
     "record_line": 123,
     "source_file": "0007_XXXXXXXX.MER"
   }

@@ -16,6 +16,7 @@ from mermaid_timeline.records import iter_jsonl, write_jsonl
 BUFFER_INTERVALS_FILE = "buffer_intervals.jsonl"
 DETREQ_INTERVALS_FILE = "detreq_intervals.jsonl"
 DIAGNOSTICS_FILE = "timeline_diagnostics.jsonl"
+_JSONL_SUFFIX = ".jsonl"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,26 +76,36 @@ def synthesize_directory(
     diagnostics: list[Diagnostic] = []
     buffer_count = 0
     detreq_count = 0
+    buffer_intervals = []
+    detreq_intervals = []
 
-    acquisition_path = input_dir / ACQUISITION_RECORDS_FILE
-    if acquisition_path.exists():
+    for acquisition_path in _record_files_for_family(
+        input_dir, _record_family(ACQUISITION_RECORDS_FILE)
+    ):
         result = build_buffer_intervals_from_records(
             list(iter_jsonl(acquisition_path)),
-            records_file=ACQUISITION_RECORDS_FILE,
+            records_file=acquisition_path.name,
             validation=validation,
         )
-        buffer_count = write_jsonl(output_dir / BUFFER_INTERVALS_FILE, result.intervals)
+        buffer_intervals.extend(result.intervals)
         diagnostics.extend(result.diagnostics)
 
-    event_path = input_dir / MER_EVENT_RECORDS_FILE
-    if event_path.exists():
+    if buffer_intervals:
+        buffer_count = write_jsonl(output_dir / BUFFER_INTERVALS_FILE, buffer_intervals)
+
+    for event_path in _record_files_for_family(
+        input_dir, _record_family(MER_EVENT_RECORDS_FILE)
+    ):
         result = build_detreq_intervals_from_records(
             list(iter_jsonl(event_path)),
-            records_file=MER_EVENT_RECORDS_FILE,
+            records_file=event_path.name,
             validation=validation,
         )
-        detreq_count = write_jsonl(output_dir / DETREQ_INTERVALS_FILE, result.intervals)
+        detreq_intervals.extend(result.intervals)
         diagnostics.extend(result.diagnostics)
+
+    if detreq_intervals:
+        detreq_count = write_jsonl(output_dir / DETREQ_INTERVALS_FILE, detreq_intervals)
 
     if diagnostics:
         write_jsonl(
@@ -112,5 +123,64 @@ def synthesize_directory(
 
 
 def _discover_record_dirs(input_root: Path) -> list[Path]:
-    names = {ACQUISITION_RECORDS_FILE, MER_EVENT_RECORDS_FILE}
-    return sorted({path.parent for name in names for path in input_root.rglob(name)})
+    families = {
+        _record_family(ACQUISITION_RECORDS_FILE),
+        _record_family(MER_EVENT_RECORDS_FILE),
+    }
+    return sorted(
+        {
+            path.parent
+            for family in families
+            for path in _record_file_candidates_for_family(input_root, family)
+        }
+    )
+
+
+def _record_files_for_family(directory: Path, family: str) -> list[Path]:
+    suffixed: list[Path] = []
+    for path in directory.glob(f"{family}.*{_JSONL_SUFFIX}"):
+        parts = _record_filename_parts(path.name)
+        if parts is not None and parts[0] == family and parts[1] is not None:
+            suffixed.append(path)
+    suffixed.sort()
+    if suffixed:
+        return suffixed
+
+    unsuffixed = [
+        path
+        for path in directory.glob(f"{family}{_JSONL_SUFFIX}")
+        if _record_filename_parts(path.name) == (family, None)
+    ]
+    unsuffixed.sort()
+    return unsuffixed
+
+
+def _record_file_candidates_for_family(directory: Path, family: str) -> list[Path]:
+    candidates: list[Path] = []
+    for path in directory.rglob(f"{family}*{_JSONL_SUFFIX}"):
+        parts = _record_filename_parts(path.name)
+        if parts is not None and parts[0] == family:
+            candidates.append(path)
+    candidates.sort()
+    return candidates
+
+
+def _record_family(filename: str) -> str:
+    parts = _record_filename_parts(filename)
+    if parts is None:
+        raise ValueError(f"not a JSONL records filename: {filename!r}")
+    return parts[0]
+
+
+def _record_filename_parts(filename: str) -> tuple[str, str | None] | None:
+    if not filename.endswith(_JSONL_SUFFIX):
+        return None
+    stem = filename[: -len(_JSONL_SUFFIX)]
+    if not stem:
+        return None
+    if "." not in stem:
+        return stem, None
+    family, instrument_serial = stem.split(".", 1)
+    if not family or not instrument_serial:
+        return None
+    return family, instrument_serial

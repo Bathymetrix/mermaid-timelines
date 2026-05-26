@@ -14,8 +14,13 @@ is the `mermaid-timeline` CLI plus the documented JSONL input/output schemas.
 
 ## Inputs
 
-- `log_acquisition_records.jsonl` produces `buf` intervals.
-- `mer_event_records.jsonl` produces `det` and `req` intervals.
+- `log_acquisition_records.<instrument_serial>.jsonl` produces `buf` intervals.
+- `mer_event_records.<instrument_serial>.jsonl` produces `det` and `req`
+  intervals.
+
+Legacy unsuffixed `log_acquisition_records.jsonl` and
+`mer_event_records.jsonl` inputs are still accepted when the suffixed v2 files
+are not present. When both forms exist, the suffixed v2 files are used.
 
 ## Outputs
 
@@ -46,7 +51,9 @@ Validation modes:
 
 Plotting is an optional reporting layer over the synthesized interval JSONL
 files. It is not part of interval synthesis and does not change the core JSONL
-contract.
+contract. Run `build` before `plot`; `plot` reads existing
+`buffer_intervals.jsonl` and `detreq_intervals.jsonl` files and does not create
+them.
 
 Install the reporting extra when you want HTML plots:
 

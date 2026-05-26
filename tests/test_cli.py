@@ -19,31 +19,34 @@ class CliTests(unittest.TestCase):
             input_dir = tmp_path / "records" / "467.174-T-0100"
             input_dir.mkdir(parents=True)
             _write_jsonl(
-                input_dir / "log_acquisition_records.jsonl",
+                input_dir / "log_acquisition_records.467.174-T-0100.jsonl",
                 [
                     {
-                        "instrument_id": "0100",
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
                         "source_file": "0100_acq.LOG",
-                        "record_time": "2023-11-20T10:00:00",
+                        "record_time": "2023-11-20T10:00:00.000000Z",
                         "acquisition_state": "started",
                         "acquisition_evidence_kind": "transition",
                     },
                     {
-                        "instrument_id": "0100",
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
                         "source_file": "0100_acq.LOG",
-                        "record_time": "2023-11-20T11:00:00",
+                        "record_time": "2023-11-20T11:00:00.000000Z",
                         "acquisition_state": "stopped",
                         "acquisition_evidence_kind": "transition",
                     },
                 ],
             )
             _write_jsonl(
-                input_dir / "mer_event_records.jsonl",
+                input_dir / "mer_event_records.467.174-T-0100.jsonl",
                 [
                     {
-                        "instrument_id": "0100",
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
                         "source_file": "0100_event.MER",
-                        "date": "2024-02-07T22:47:22",
+                        "date": "2024-02-07T22:47:22.000000Z",
                         "criterion": None,
                         "snr": None,
                         "trig": None,
@@ -98,12 +101,13 @@ class CliTests(unittest.TestCase):
             input_dir = tmp_path / "records" / "467.174-T-0100"
             input_dir.mkdir(parents=True)
             _write_jsonl(
-                input_dir / "log_acquisition_records.jsonl",
+                input_dir / "log_acquisition_records.467.174-T-0100.jsonl",
                 [
                     {
-                        "instrument_id": "0100",
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
                         "source_file": "0100_acq.LOG",
-                        "record_time": "2023-11-20T10:00:00",
+                        "record_time": "2023-11-20T10:00:00.000000Z",
                         "acquisition_state": "started",
                         "acquisition_evidence_kind": "transition",
                     }
@@ -124,12 +128,13 @@ class CliTests(unittest.TestCase):
             input_dir = tmp_path / "records" / "467.174-T-0100"
             input_dir.mkdir(parents=True)
             _write_jsonl(
-                input_dir / "log_acquisition_records.jsonl",
+                input_dir / "log_acquisition_records.467.174-T-0100.jsonl",
                 [
                     {
-                        "instrument_id": "0100",
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
                         "source_file": "0100_acq.LOG",
-                        "record_time": "2023-11-20T10:00:00",
+                        "record_time": "2023-11-20T10:00:00.000000Z",
                         "acquisition_state": "stopped",
                         "acquisition_evidence_kind": "transition",
                     }
@@ -167,13 +172,16 @@ class CliTests(unittest.TestCase):
                         "message": (
                             "stopped transition encountered with no active interval"
                         ),
-                        "records_file": "log_acquisition_records.jsonl",
+                        "records_file": "log_acquisition_records.467.174-T-0100.jsonl",
                         "input_file": str(
-                            (input_dir / "log_acquisition_records.jsonl").resolve()
+                            (
+                                input_dir
+                                / "log_acquisition_records.467.174-T-0100.jsonl"
+                            ).resolve()
                         ),
                         "record_line": 1,
-                        "issue_time": "2023-11-20T10:00:00Z",
-                        "instrument_id": "0100",
+                        "issue_time": "2023-11-20T10:00:00.000000Z",
+                        "instrument_id": "T0100",
                         "source_file": "0100_acq.LOG",
                     }
                 ],

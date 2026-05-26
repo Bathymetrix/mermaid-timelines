@@ -68,6 +68,15 @@ class DetReqTests(unittest.TestCase):
         self.assertEqual(interval["start_time"], "2018-07-12T06:49:56.429681Z")
         self.assertEqual(interval["end_time"], "2018-07-12T06:49:56.429681Z")
 
+    def test_offset_event_date_is_converted_to_utc(self) -> None:
+        result = build_detreq_intervals(
+            [event_row(date="2018-07-11T23:49:56.429681-07:00", length="1")]
+        )
+
+        interval = result.intervals[0]
+        self.assertEqual(interval["start_time"], "2018-07-12T06:49:56.429681Z")
+        self.assertEqual(interval["end_time"], "2018-07-12T06:49:56.429681Z")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -34,8 +34,8 @@ class BufferTests(unittest.TestCase):
 
         self.assertEqual(len(result.intervals), 1)
         interval = result.intervals[0]
-        self.assertEqual(interval["start_time"], "2023-11-20T10:00:00Z")
-        self.assertEqual(interval["end_time"], "2023-11-20T12:45:10Z")
+        self.assertEqual(interval["start_time"], "2023-11-20T10:00:00.000000Z")
+        self.assertEqual(interval["end_time"], "2023-11-20T12:45:10.000000Z")
         self.assertEqual(interval["start_boundary"], "closed")
         self.assertEqual(interval["end_boundary"], "closed")
         self.assertEqual(interval["start_evidence_kind"], "assertion")
@@ -51,11 +51,13 @@ class BufferTests(unittest.TestCase):
 
         self.assertEqual(len(result.intervals), 1)
         interval = result.intervals[0]
-        self.assertEqual(interval["start_time"], "2023-11-20T10:00:00Z")
+        self.assertEqual(interval["start_time"], "2023-11-20T10:00:00.000000Z")
         self.assertIsNone(interval["end_time"])
         self.assertEqual(interval["end_boundary"], "open_unknown")
         self.assertEqual(interval["end_evidence_kind"], "assertion")
-        self.assertEqual(interval["end_evidence_time"], "2023-11-20T12:45:10Z")
+        self.assertEqual(
+            interval["end_evidence_time"], "2023-11-20T12:45:10.000000Z"
+        )
 
     def test_repeated_stopped_assertions_do_not_create_intervals(self) -> None:
         result = build_buffer_intervals(
@@ -79,8 +81,8 @@ class BufferTests(unittest.TestCase):
 
         self.assertEqual(len(result.intervals), 1)
         interval = result.intervals[0]
-        self.assertEqual(interval["start_time"], "2023-11-20T10:00:00Z")
-        self.assertEqual(interval["end_time"], "2023-11-20T12:45:10Z")
+        self.assertEqual(interval["start_time"], "2023-11-20T10:00:00.000000Z")
+        self.assertEqual(interval["end_time"], "2023-11-20T12:45:10.000000Z")
         self.assertEqual(interval["provenance"]["start_record_line"], 1)
         self.assertEqual(interval["provenance"]["end_record_line"], 3)
 
@@ -104,7 +106,7 @@ class BufferTests(unittest.TestCase):
         )
         self.assertEqual(
             [item.issue_time for item in diagnostic.diagnostics],
-            ["2023-11-20T10:05:00Z"],
+            ["2023-11-20T10:05:00.000000Z"],
         )
 
     def test_orphan_stop_transition_is_strict_error_and_diagnostic_warning(self) -> None:
@@ -121,7 +123,7 @@ class BufferTests(unittest.TestCase):
         )
         self.assertEqual(
             [item.issue_time for item in diagnostic.diagnostics],
-            ["2023-11-20T10:00:00Z"],
+            ["2023-11-20T10:00:00.000000Z"],
         )
 
     def test_orphan_stop_transition_diagnostic_mode_continues(self) -> None:
@@ -140,8 +142,24 @@ class BufferTests(unittest.TestCase):
             ["orphan_stop_transition"],
         )
         self.assertEqual(len(diagnostic.intervals), 1)
-        self.assertEqual(diagnostic.intervals[0]["start_time"], "2023-11-20T11:00:00Z")
-        self.assertEqual(diagnostic.intervals[0]["end_time"], "2023-11-20T12:00:00Z")
+        self.assertEqual(
+            diagnostic.intervals[0]["start_time"], "2023-11-20T11:00:00.000000Z"
+        )
+        self.assertEqual(
+            diagnostic.intervals[0]["end_time"], "2023-11-20T12:00:00.000000Z"
+        )
+
+    def test_offset_record_time_is_converted_to_utc(self) -> None:
+        result = build_buffer_intervals(
+            [
+                row("2023-11-20T10:00:00-08:00", "started", "transition"),
+                row("2023-11-20T11:00:00-08:00", "stopped", "transition"),
+            ]
+        )
+
+        interval = result.intervals[0]
+        self.assertEqual(interval["start_time"], "2023-11-20T18:00:00.000000Z")
+        self.assertEqual(interval["end_time"], "2023-11-20T19:00:00.000000Z")
 
     def test_open_interval_at_end_of_input_is_open_unknown(self) -> None:
         result = build_buffer_intervals(
