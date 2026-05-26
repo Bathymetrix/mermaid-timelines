@@ -305,6 +305,7 @@ class CliTests(unittest.TestCase):
                         "interval_type": "req",
                         "start_time": "2024-02-07T22:48:22Z",
                         "end_time": "2024-02-07T22:48:23Z",
+                        "duration": 1.0,
                         "start_boundary": "closed",
                         "end_boundary": "closed",
                         "provenance": {
@@ -347,6 +348,8 @@ class CliTests(unittest.TestCase):
             self.assertIn("buf", html)
             self.assertIn("det", html)
             self.assertIn("req", html)
+            self.assertIn("duration: 1.000000", html)
+            self.assertIn("duration: null", html)
             self.assertIn("float_serial: 467.174", html)
             self.assertIn("timeline_subdir: 467.174-T-0100", html)
             self.assertIn("open-ended; true end unknown", html)
@@ -1038,6 +1041,7 @@ def _interval_row(instrument_id: str, interval_type: str, start_time: str) -> In
         end_time=parsed_end,
         start_time_text=start_time,
         end_time_text=start_time,
+        duration=1.0,
         start_boundary="closed",
         end_boundary="closed",
         provenance={},

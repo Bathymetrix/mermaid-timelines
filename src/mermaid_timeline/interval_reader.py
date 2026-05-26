@@ -26,6 +26,7 @@ class IntervalRow:
     end_time: datetime | None
     start_time_text: str
     end_time_text: str | None
+    duration: float | None
     start_boundary: str
     end_boundary: str
     provenance: JsonObject
@@ -103,6 +104,7 @@ def _interval_from_record(root: Path, path: Path, record: SourceRecord) -> Inter
         if end_time_value is None
         else _parse_time(end_time_value, "end_time", path, record.line_number)
     )
+    duration = _optional_float(row, "duration", path, record.line_number)
 
     provenance_value = row.get("provenance")
     if provenance_value is None:
@@ -129,6 +131,7 @@ def _interval_from_record(root: Path, path: Path, record: SourceRecord) -> Inter
         end_time=end_time,
         start_time_text=start_time_text,
         end_time_text=end_time_text,
+        duration=duration,
         start_boundary=start_boundary,
         end_boundary=end_boundary,
         provenance=provenance,
@@ -200,5 +203,40 @@ def _parse_time(
                 value=value,
                 expected="ISO-8601 timestamp",
                 detail=str(exc),
+            )
+        ) from exc
+
+
+def _optional_float(
+    row: JsonObject,
+    field_name: str,
+    path: Path,
+    line_number: int,
+) -> float | None:
+    value = row.get(field_name)
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError(
+            format_input_error(
+                "Invalid interval record",
+                file=path,
+                line=line_number,
+                field=field_name,
+                value=value,
+                expected="number or null",
+            )
+        )
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            format_input_error(
+                "Invalid interval record",
+                file=path,
+                line=line_number,
+                field=field_name,
+                value=value,
+                expected="number or null",
             )
         ) from exc

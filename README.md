@@ -113,9 +113,9 @@ Reports distinguish `buf`, `det`, and `req` intervals, and mark `open_unknown`
 ends as open-ended in the visual styling and hover text. Plotting scans the
 input directory's immediate instrument serial subdirectories, or the input
 directory itself when it is an instrument serial directory, for
-`buffer_intervals.jsonl` and `detreq_intervals.jsonl`. Hover text includes the
-source timeline subdirectory plus the inferred float serial when outputs use the
-usual `467.174-T-0100` directory naming pattern.
+`buffer_intervals.jsonl` and `detreq_intervals.jsonl`. Hover text includes
+interval duration, the source timeline subdirectory, and the inferred float
+serial when outputs use the usual `467.174-T-0100` directory naming pattern.
 
 Optional filters:
 

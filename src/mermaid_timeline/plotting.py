@@ -509,6 +509,7 @@ def _hover_text(interval: IntervalRow) -> str:
         f"interval_type: {interval.interval_type}",
         f"start_time: {interval.start_time_text}",
         f"end_time: {interval.end_time_text}",
+        f"duration: {_duration_text(interval.duration)}",
         f"start_boundary: {interval.start_boundary}",
         f"end_boundary: {interval.end_boundary}",
     ]
@@ -529,6 +530,12 @@ def _hover_text(interval: IntervalRow) -> str:
         if value is not None:
             lines.append(f"{key}: {value}")
     return "<br>".join(lines)
+
+
+def _duration_text(duration: float | None) -> str:
+    if duration is None:
+        return "null"
+    return f"{duration:.6f}"
 
 
 def _html_document(plot_div: str) -> str:
