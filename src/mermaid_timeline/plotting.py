@@ -137,7 +137,7 @@ def _write_instrument_availability_html(
         if output_file is not None:
             report_path = output_file
         else:
-            output_dir = output if output is not None else interval_dir.path
+            output_dir = _plot_report_output_dir(root, interval_dir, output)
             report_path = output_dir / _instrument_report_filename(instrument_id)
 
         report_path = _ensure_html_suffix(report_path)
@@ -240,14 +240,22 @@ def _plot_interval_directories(
         return (directory,)
 
     if filters.instrument_serial is not None:
-        instrument_name = parse_instrument_name(filters.instrument_serial)
-        interval_dir = root / filters.instrument_serial
-        if not interval_dir.is_dir():
+        matches = _serial_directories_for_instrument_serial(
+            root,
+            filters.instrument_serial,
+        )
+        if not matches:
             raise ValueError(
                 f"--instrument-serial {filters.instrument_serial!r} did not match "
-                f"a subdirectory of {root}"
+                f"a subdirectory under {root}"
             )
-        return (_IntervalDirectory(interval_dir.resolve(), instrument_name),)
+        if len(matches) > 1:
+            names = ", ".join(str(match.path.relative_to(root)) for match in matches)
+            raise ValueError(
+                f"--instrument-serial {filters.instrument_serial!r} matched "
+                f"multiple subdirectories: {names}"
+            )
+        return tuple(matches)
 
     if filters.instrument_id is not None:
         matches = _serial_directories_for_instrument_id(root, filters.instrument_id)
@@ -266,8 +274,8 @@ def _plot_interval_directories(
 
     interval_dirs = tuple(
         _IntervalDirectory(path.resolve(), maybe_parse_instrument_name(path.name))
-        for path in sorted(root.iterdir())
-        if path.is_dir() and _has_interval_product(path)
+        for path in _recursive_child_dirs(root)
+        if _has_interval_product(path)
     )
     if not interval_dirs:
         raise ValueError(
@@ -308,15 +316,41 @@ def _serial_directories_for_instrument_id(
     instrument_id: str,
 ) -> list[_IntervalDirectory]:
     matches: list[_IntervalDirectory] = []
-    for path in sorted(root.iterdir()):
-        if not path.is_dir():
-            continue
+    for path in _recursive_child_dirs(root):
         instrument_name = maybe_parse_instrument_name(path.name)
         if instrument_name is None:
+            continue
+        if not _has_interval_product(path):
             continue
         if instrument_name.instrument_id == instrument_id:
             matches.append(_IntervalDirectory(path.resolve(), instrument_name))
     return matches
+
+
+def _serial_directories_for_instrument_serial(
+    root: Path,
+    instrument_serial: str,
+) -> list[_IntervalDirectory]:
+    instrument_name = parse_instrument_name(instrument_serial)
+    return [
+        _IntervalDirectory(path.resolve(), instrument_name)
+        for path in _recursive_child_dirs(root)
+        if path.name == instrument_serial and _has_interval_product(path)
+    ]
+
+
+def _recursive_child_dirs(root: Path) -> list[Path]:
+    return sorted(path for path in root.rglob("*") if path.is_dir())
+
+
+def _plot_report_output_dir(
+    root: Path,
+    interval_dir: _IntervalDirectory,
+    output: Path | None,
+) -> Path:
+    if output is None:
+        return interval_dir.path
+    return output / interval_dir.path.relative_to(root)
 
 
 def _has_interval_product(path: Path) -> bool:

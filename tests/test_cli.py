@@ -411,20 +411,94 @@ class CliTests(unittest.TestCase):
             nested_report = nested_dir / "T9999_data_intervals.html"
             summary = json.loads(output.getvalue())
             self.assertEqual(exit_code, 0)
-            self.assertEqual(summary["intervals"], 2)
-            self.assertEqual(summary["reports"], 2)
+            self.assertEqual(summary["intervals"], 3)
+            self.assertEqual(summary["reports"], 3)
             self.assertEqual(
                 {Path(item["output"]).resolve() for item in summary["outputs"]},
-                {first_report.resolve(), second_report.resolve()},
+                {
+                    first_report.resolve(),
+                    second_report.resolve(),
+                    nested_report.resolve(),
+                },
             )
-            self.assertFalse(nested_report.exists())
             self.assertIn("input directories", stderr.getvalue())
             first_html = first_report.read_text(encoding="utf-8")
             second_html = second_report.read_text(encoding="utf-8")
+            nested_html = nested_report.read_text(encoding="utf-8")
             self.assertIn("R0065", first_html)
             self.assertNotIn("T0100", first_html)
             self.assertIn("T0100", second_html)
             self.assertNotIn("R0065", second_html)
+            self.assertIn("T9999", nested_html)
+
+    def test_cli_plot_output_directory_mirrors_recursive_input_dirs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            tmp_path = Path(tmp_name)
+            first_dir = tmp_path / "timeline" / "batch-a" / "467.174-T-0100"
+            second_dir = tmp_path / "timeline" / "batch-b" / "467.175-T-0200"
+            _write_jsonl(
+                first_dir / "detreq_intervals.jsonl",
+                [
+                    {
+                        "instrument_id": "T0100",
+                        "interval_type": "det",
+                        "start_time": "2024-02-07T22:47:22Z",
+                        "end_time": "2024-02-07T22:47:23Z",
+                        "start_boundary": "closed",
+                        "end_boundary": "closed",
+                    }
+                ],
+            )
+            _write_jsonl(
+                second_dir / "detreq_intervals.jsonl",
+                [
+                    {
+                        "instrument_id": "T0200",
+                        "interval_type": "req",
+                        "start_time": "2024-03-07T22:47:22Z",
+                        "end_time": "2024-03-07T22:47:23Z",
+                        "start_boundary": "closed",
+                        "end_boundary": "closed",
+                    }
+                ],
+            )
+
+            output_root = tmp_path / "reports"
+            output = io.StringIO()
+            with patch(
+                "mermaid_timeline.plotting._load_plotly",
+                return_value=(_FakeGo, _fake_plot),
+            ), redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "plot",
+                        "--input",
+                        str(tmp_path / "timeline"),
+                        "--output",
+                        str(output_root),
+                    ]
+                )
+
+            first_report = (
+                output_root
+                / "batch-a"
+                / "467.174-T-0100"
+                / "T0100_data_intervals.html"
+            )
+            second_report = (
+                output_root
+                / "batch-b"
+                / "467.175-T-0200"
+                / "T0200_data_intervals.html"
+            )
+            summary = json.loads(output.getvalue())
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                {Path(item["output"]).resolve() for item in summary["outputs"]},
+                {first_report.resolve(), second_report.resolve()},
+            )
+            self.assertIn("T0100", first_report.read_text(encoding="utf-8"))
+            self.assertIn("T0200", second_report.read_text(encoding="utf-8"))
 
     def test_cli_plot_accepts_single_instrument_serial_input_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
@@ -646,8 +720,40 @@ class CliTests(unittest.TestCase):
     def test_cli_plot_instrument_id_reports_multiple_serial_matches(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
-            (tmp_path / "timeline" / "467.174-T-0100").mkdir(parents=True)
-            (tmp_path / "timeline" / "999.999-T-0100").mkdir(parents=True)
+            _write_jsonl(
+                tmp_path
+                / "timeline"
+                / "batch-a"
+                / "467.174-T-0100"
+                / "detreq_intervals.jsonl",
+                [
+                    {
+                        "instrument_id": "T0100",
+                        "interval_type": "det",
+                        "start_time": "2024-02-07T22:47:22Z",
+                        "end_time": "2024-02-07T22:47:23Z",
+                        "start_boundary": "closed",
+                        "end_boundary": "closed",
+                    },
+                ],
+            )
+            _write_jsonl(
+                tmp_path
+                / "timeline"
+                / "batch-b"
+                / "999.999-T-0100"
+                / "detreq_intervals.jsonl",
+                [
+                    {
+                        "instrument_id": "T0100",
+                        "interval_type": "req",
+                        "start_time": "2024-03-07T22:47:22Z",
+                        "end_time": "2024-03-07T22:47:23Z",
+                        "start_boundary": "closed",
+                        "end_boundary": "closed",
+                    },
+                ],
+            )
 
             stderr = io.StringIO()
             with redirect_stderr(stderr):
