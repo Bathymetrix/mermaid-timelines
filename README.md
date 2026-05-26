@@ -7,7 +7,7 @@ The package is intentionally parse/coverage focused. It does not decode or
 analyze waveform payloads. Future event-request and GCMT tooling can consume
 these interval products alongside catalogs and travel-time products.
 
-Requires Python 3.12 or newer.
+Requires Python 3.12 or newer; Python 3.12 through 3.14 are supported.
 
 Python import paths are not yet a stable public API. The stable v0.1 contract
 is the `mermaid-timeline` CLI plus the documented JSONL input/output schemas.

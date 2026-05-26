@@ -5,12 +5,14 @@ import json
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 from mermaid_timeline import __version__
 from mermaid_timeline.cli import main
-from mermaid_timeline.plotting import MissingPlotlyError
+from mermaid_timeline.interval_reader import IntervalRow
+from mermaid_timeline.plotting import MissingPlotlyError, _build_figure
 
 
 class CliTests(unittest.TestCase):
@@ -324,6 +326,27 @@ class CliTests(unittest.TestCase):
             self.assertIn("float_serial: 467.174", html)
             self.assertIn("timeline_subdir: 467.174-T-0100", html)
             self.assertIn("open-ended; true end unknown", html)
+
+    def test_plot_uses_touching_det_req_buffer_y_axes(self) -> None:
+        figure = _build_figure(
+            [
+                _interval_row("T0100", "det", "2024-02-07T22:47:22Z"),
+                _interval_row("T0100", "req", "2024-02-07T22:48:22Z"),
+                _interval_row("T0100", "buf", "2024-02-07T22:49:22Z"),
+            ],
+            _FakeGo,
+        )
+
+        self.assertEqual([trace.yaxis for trace in figure.data], ["y", "y2", "y3"])
+        self.assertEqual(figure.layout["yaxis"]["title"], "DET")
+        self.assertEqual(figure.layout["yaxis2"]["title"], "REQ")
+        self.assertEqual(figure.layout["yaxis3"]["title"], "BUFFER")
+        self.assertEqual(figure.layout["yaxis"]["domain"][0], 2 / 3)
+        self.assertEqual(figure.layout["yaxis"]["domain"][1], 1)
+        self.assertEqual(figure.layout["yaxis2"]["domain"][0], 1 / 3)
+        self.assertEqual(figure.layout["yaxis2"]["domain"][1], 2 / 3)
+        self.assertEqual(figure.layout["yaxis3"]["domain"][0], 0)
+        self.assertEqual(figure.layout["yaxis3"]["domain"][1], 1 / 3)
 
     def test_cli_plot_defaults_to_one_html_report_per_instrument(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
@@ -867,6 +890,26 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
     return rows
 
 
+def _interval_row(instrument_id: str, interval_type: str, start_time: str) -> IntervalRow:
+    parsed_start = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+    parsed_end = parsed_start + timedelta(seconds=1)
+    return IntervalRow(
+        instrument_id=instrument_id,
+        interval_type=interval_type,
+        start_time=parsed_start,
+        end_time=parsed_end,
+        start_time_text=start_time,
+        end_time_text=start_time,
+        start_boundary="closed",
+        end_boundary="closed",
+        provenance={},
+        interval_file=Path("intervals.jsonl"),
+        interval_line=1,
+        timeline_subdir=None,
+        float_serial=None,
+    )
+
+
 class _FakeTrace:
     def __init__(self, **kwargs: object) -> None:
         self.__dict__.update(kwargs)
@@ -875,12 +918,13 @@ class _FakeTrace:
 class _FakeFigure:
     def __init__(self) -> None:
         self.data: list[_FakeTrace] = []
+        self.layout: dict[str, object] = {}
 
     def add_trace(self, trace: _FakeTrace) -> None:
         self.data.append(trace)
 
-    def update_layout(self, **_: object) -> None:
-        return None
+    def update_layout(self, **kwargs: object) -> None:
+        self.layout.update(kwargs)
 
     def update_yaxes(self, **_: object) -> None:
         return None

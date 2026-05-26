@@ -17,6 +17,11 @@ from mermaid_timeline.interval_reader import IntervalRow, read_interval_rows
 from mermaid_timeline.pipeline import BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FILE
 
 _HTML_SUFFIXES = {".htm", ".html"}
+_PLOT_LANES = {
+    "det": {"axis": "y", "title": "DET", "domain": [2 / 3, 1]},
+    "req": {"axis": "y2", "title": "REQ", "domain": [1 / 3, 2 / 3]},
+    "buf": {"axis": "y3", "title": "BUFFER", "domain": [0, 1 / 3]},
+}
 
 
 class MissingPlotlyError(RuntimeError):
@@ -390,6 +395,7 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
             display_end = interval.start_time + timedelta(hours=1)
         hover = _hover_text(interval)
         color = colors.get(interval.interval_type, "#4A5568")
+        lane = _PLOT_LANES.get(interval.interval_type, _PLOT_LANES["buf"])
         dash = "dash" if is_open else "solid"
         opacity = 0.45 if is_open else 0.95
         marker = {
@@ -406,6 +412,7 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
                 marker=marker,
                 opacity=opacity,
                 name=interval.interval_type,
+                yaxis=lane["axis"],
                 legendgroup=interval.interval_type,
                 showlegend=_first_trace_for_type(figure, interval.interval_type),
                 hoverinfo="text",
@@ -416,13 +423,29 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
     figure.update_layout(
         title="MERMAID Timeline Availability",
         xaxis_title="Time",
-        yaxis_title="Instrument",
+        yaxis={
+            "title": _PLOT_LANES["det"]["title"],
+            "domain": _PLOT_LANES["det"]["domain"],
+            "type": "category",
+            "autorange": "reversed",
+        },
+        yaxis2={
+            "title": _PLOT_LANES["req"]["title"],
+            "domain": _PLOT_LANES["req"]["domain"],
+            "type": "category",
+            "autorange": "reversed",
+        },
+        yaxis3={
+            "title": _PLOT_LANES["buf"]["title"],
+            "domain": _PLOT_LANES["buf"]["domain"],
+            "type": "category",
+            "autorange": "reversed",
+        },
         hovermode="closest",
         template="plotly_white",
         margin={"l": 90, "r": 40, "t": 70, "b": 60},
         legend_title_text="Interval type",
     )
-    figure.update_yaxes(type="category", autorange="reversed")
     return figure
 
 
