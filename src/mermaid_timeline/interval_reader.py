@@ -29,6 +29,7 @@ class IntervalRow:
     duration: float | None
     start_boundary: str
     end_boundary: str
+    metadata: JsonObject
     provenance: JsonObject
     interval_file: Path
     interval_line: int
@@ -134,12 +135,29 @@ def _interval_from_record(root: Path, path: Path, record: SourceRecord) -> Inter
         duration=duration,
         start_boundary=start_boundary,
         end_boundary=end_boundary,
+        metadata=_interval_metadata(row),
         provenance=provenance,
         interval_file=path,
         interval_line=record.line_number,
         timeline_subdir=timeline_subdir,
         float_serial=_float_serial(timeline_subdir),
     )
+
+
+def _interval_metadata(row: JsonObject) -> JsonObject:
+    standard_fields = {
+        "schema_version",
+        "generated_by",
+        "instrument_id",
+        "interval_type",
+        "start_time",
+        "end_time",
+        "duration",
+        "start_boundary",
+        "end_boundary",
+        "provenance",
+    }
+    return {key: value for key, value in row.items() if key not in standard_fields}
 
 
 def _timeline_subdir(root: Path, path: Path) -> str | None:

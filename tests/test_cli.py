@@ -348,29 +348,59 @@ class CliTests(unittest.TestCase):
             self.assertIn("buf", html)
             self.assertIn("det", html)
             self.assertIn("req", html)
-            self.assertIn("duration: 1.000000", html)
-            self.assertIn("duration: null", html)
+            self.assertIn("duration_seconds", html)
+            self.assertIn("1.000000", html)
+            self.assertIn("null", html)
             self.assertIn("float_serial: 467.174", html)
             self.assertIn("timeline_subdir: 467.174-T-0100", html)
             self.assertIn("open-ended; true end unknown", html)
 
-    def test_plot_overlays_intervals_with_det_on_top(self) -> None:
+    def test_plot_renders_hoverable_interval_bars_with_det_on_top(self) -> None:
         figure = _build_figure(
             [
                 _interval_row("T0100", "det", "2024-02-07T22:47:22Z"),
                 _interval_row("T0100", "req", "2024-02-07T22:48:22Z"),
-                _interval_row("T0100", "buf", "2024-02-07T22:49:22Z"),
+                _interval_row(
+                    "T0100",
+                    "buf",
+                    "2024-02-07T22:49:22Z",
+                    metadata={"start_evidence_kind": "transition"},
+                ),
             ],
             _FakeGo,
         )
 
         self.assertEqual([trace.name for trace in figure.data], ["buf", "req", "det"])
-        self.assertEqual([trace.y for trace in figure.data], [["T0100", "T0100"]] * 3)
+        self.assertEqual([trace.orientation for trace in figure.data], ["h"] * 3)
+        self.assertEqual([trace.y for trace in figure.data], [["T0100"]] * 3)
         self.assertEqual(
-            [trace.line["color"] for trace in figure.data],
+            [trace.base for trace in figure.data],
+            [
+                [datetime.fromisoformat("2024-02-07T22:49:22+00:00")],
+                [datetime.fromisoformat("2024-02-07T22:48:22+00:00")],
+                [datetime.fromisoformat("2024-02-07T22:47:22+00:00")],
+            ],
+        )
+        self.assertEqual([trace.x for trace in figure.data], [[1000.0]] * 3)
+        self.assertEqual(
+            [trace.marker["color"] for trace in figure.data],
             ["#000000", "#D627B0", "#1F77B4"],
         )
+        self.assertTrue(
+            all("duration_seconds" in trace.hovertemplate for trace in figure.data)
+        )
+        self.assertTrue(
+            all("<extra></extra>" in trace.hovertemplate for trace in figure.data)
+        )
+        self.assertIn("buf", figure.data[0].customdata[0])
+        self.assertIn("T0100", figure.data[0].customdata[0])
+        self.assertIn("1.000000", figure.data[0].customdata[0])
+        self.assertIn("transition", figure.data[0].customdata[0])
+        self.assertIn("start_evidence_kind", figure.data[0].hovertemplate)
         self.assertEqual([trace.legendrank for trace in figure.data], [2, 1, 0])
+        self.assertEqual(figure.layout["xaxis"]["type"], "date")
+        self.assertEqual(figure.layout["xaxis"]["title"], "Time")
+        self.assertEqual(figure.layout["barmode"], "overlay")
         self.assertNotIn("yaxis2", figure.layout)
         self.assertNotIn("yaxis3", figure.layout)
         self.assertEqual(figure.layout["yaxis"]["title"], "Instrument ID")
@@ -1027,7 +1057,13 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
     return rows
 
 
-def _interval_row(instrument_id: str, interval_type: str, start_time: str) -> IntervalRow:
+def _interval_row(
+    instrument_id: str,
+    interval_type: str,
+    start_time: str,
+    *,
+    metadata: dict[str, object] | None = None,
+) -> IntervalRow:
     parsed_start = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
     parsed_end = parsed_start + timedelta(seconds=1)
     return IntervalRow(
@@ -1040,6 +1076,7 @@ def _interval_row(instrument_id: str, interval_type: str, start_time: str) -> In
         duration=1.0,
         start_boundary="closed",
         end_boundary="closed",
+        metadata=metadata or {},
         provenance={},
         interval_file=Path("intervals.jsonl"),
         interval_line=1,
@@ -1070,7 +1107,7 @@ class _FakeFigure:
 
 class _FakeGo:
     Figure = _FakeFigure
-    Scatter = _FakeTrace
+    Bar = _FakeTrace
 
 
 def _fake_plot(
@@ -1085,7 +1122,15 @@ def _fake_plot(
     for trace in figure.data:
         chunks.append(str(trace.name))
         chunks.extend(str(item) for item in trace.y)
-        chunks.extend(str(item) for item in trace.text)
+        chunks.append(str(trace.hovertemplate))
+        for values in trace.customdata:
+            chunks.extend(str(item) for item in values)
+            for index, value in enumerate(values):
+                token = f"%{{customdata[{index}]}}"
+                for line in str(trace.hovertemplate).split("<br>"):
+                    if token in line:
+                        chunks.append(line.replace(token, str(value)))
+                        break
     return "\n".join(chunks)
 
 

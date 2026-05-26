@@ -424,41 +424,46 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
         display_end = interval.end_time if interval.end_time is not None else horizon
         if display_end <= interval.start_time:
             display_end = interval.start_time + timedelta(hours=1)
-        hover = _hover_text(interval)
+        customdata, hovertemplate = _hover_data(interval)
         color = colors.get(interval.interval_type, "#4A5568")
-        dash = "dash" if is_open else "solid"
         opacity = 0.45 if is_open else 0.95
-        marker = {
-            "size": 10,
-            "symbol": "triangle-right" if is_open else "line-ew",
-            "color": color,
-        }
         figure.add_trace(
-            go.Scatter(
-                x=[interval.start_time, display_end],
-                y=[interval.instrument_id, interval.instrument_id],
-                mode="lines+markers" if is_open else "lines",
-                line={"color": color, "width": 12, "dash": dash},
-                marker=marker,
+            go.Bar(
+                orientation="h",
+                base=[interval.start_time],
+                x=[_duration_milliseconds(interval.start_time, display_end)],
+                y=[interval.instrument_id],
+                width=0.36,
+                marker={
+                    "color": color,
+                    "line": {
+                        "color": color,
+                        "width": 1,
+                    },
+                },
                 opacity=opacity,
                 name=interval.interval_type,
                 legendgroup=interval.interval_type,
                 legendrank=_LEGEND_ORDER.get(interval.interval_type, 99),
                 showlegend=_first_trace_for_type(figure, interval.interval_type),
-                hoverinfo="text",
-                text=[hover, hover],
+                customdata=[customdata],
+                hovertemplate=hovertemplate,
             )
         )
 
     figure.update_layout(
         title="MERMAID Timeline Availability",
-        xaxis_title="Time",
+        xaxis={
+            "title": "Time",
+            "type": "date",
+        },
         yaxis={
             "title": "Instrument ID",
             "type": "category",
             "autorange": "reversed",
         },
         hovermode="closest",
+        barmode="overlay",
         template="plotly_white",
         margin={"l": 90, "r": 40, "t": 70, "b": 60},
         legend_title_text="Interval type",
@@ -495,23 +500,41 @@ def _plot_horizon(intervals: Sequence[IntervalRow]) -> datetime:
     return end
 
 
-def _hover_text(interval: IntervalRow) -> str:
+def _duration_milliseconds(start: datetime, end: datetime) -> float:
+    return (end - start).total_seconds() * 1000.0
+
+
+def _hover_data(interval: IntervalRow) -> tuple[list[str], str]:
+    lines = _hover_lines(interval)
+    customdata = [value for _, value in lines]
+    template_lines = [
+        f"{label}: %{{customdata[{index}]}}"
+        for index, (label, _) in enumerate(lines)
+    ]
+    return customdata, "<br>".join(template_lines) + "<extra></extra>"
+
+
+def _hover_lines(interval: IntervalRow) -> list[tuple[str, str]]:
     provenance = interval.provenance
     lines = [
-        f"instrument_id: {interval.instrument_id}",
-        f"interval_type: {interval.interval_type}",
-        f"start_time: {interval.start_time_text}",
-        f"end_time: {interval.end_time_text}",
-        f"duration: {_duration_text(interval.duration)}",
-        f"start_boundary: {interval.start_boundary}",
-        f"end_boundary: {interval.end_boundary}",
+        ("interval_type", interval.interval_type),
+        ("instrument_id", interval.instrument_id),
+        ("start_time", interval.start_time_text),
+        ("end_time", _optional_text(interval.end_time_text)),
+        ("duration_seconds", _duration_text(interval.duration)),
+        ("start_boundary", interval.start_boundary),
+        ("end_boundary", interval.end_boundary),
     ]
     if interval.float_serial is not None:
-        lines.append(f"float_serial: {interval.float_serial}")
+        lines.append(("float_serial", interval.float_serial))
     if interval.timeline_subdir is not None:
-        lines.append(f"timeline_subdir: {interval.timeline_subdir}")
+        lines.append(("timeline_subdir", interval.timeline_subdir))
     if interval.end_boundary == "open_unknown":
-        lines.append("status: open-ended; true end unknown")
+        lines.append(("status", "open-ended; true end unknown"))
+    for key in _metadata_hover_keys(interval.interval_type):
+        value = interval.metadata.get(key)
+        if value is not None:
+            lines.append((key, str(value)))
     for key in (
         "source_file",
         "records_file",
@@ -521,8 +544,37 @@ def _hover_text(interval: IntervalRow) -> str:
     ):
         value = provenance.get(key)
         if value is not None:
-            lines.append(f"{key}: {value}")
-    return "<br>".join(lines)
+            lines.append((key, str(value)))
+    return lines
+
+
+def _metadata_hover_keys(interval_type: str) -> tuple[str, ...]:
+    if interval_type == "buf":
+        return (
+            "start_evidence_kind",
+            "end_evidence_kind",
+            "start_evidence_time",
+            "end_evidence_time",
+        )
+    if interval_type in {"det", "req"}:
+        return (
+            "criterion",
+            "snr",
+            "trig",
+            "detrig",
+            "sampling_rate_hz",
+            "sample_count",
+            "filename",
+            "frequency",
+            "request",
+        )
+    return ()
+
+
+def _optional_text(value: object | None) -> str:
+    if value is None:
+        return "null"
+    return str(value)
 
 
 def _duration_text(duration: float | None) -> str:
