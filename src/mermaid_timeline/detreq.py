@@ -35,7 +35,7 @@ def build_detreq_intervals(
     rows: JsonRows,
     *,
     records_file: str = MER_EVENT_RECORDS_FILE,
-    validation: ValidationMode = "strict",
+    validation: ValidationMode = "permissive",
 ) -> TimelineResult:
     """Build DET/REQ intervals from normalized MER event rows."""
 
@@ -48,7 +48,7 @@ def build_detreq_intervals_from_records(
     records: SourceRecords,
     *,
     records_file: str = MER_EVENT_RECORDS_FILE,
-    validation: ValidationMode = "strict",
+    validation: ValidationMode = "permissive",
 ) -> TimelineResult:
     ctx = ValidationContext(validation)
     intervals: list[JsonObject] = []

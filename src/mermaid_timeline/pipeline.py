@@ -59,7 +59,7 @@ def run_timeline_pipeline(
     input_root: Path,
     output_root: Path,
     *,
-    validation: ValidationMode = "strict",
+    validation: ValidationMode = "permissive",
 ) -> TimelinePipelineSummary:
     """Synthesize timeline products for every normalized records directory."""
 
@@ -81,7 +81,7 @@ def synthesize_directory(
     input_dir: Path,
     output_dir: Path,
     *,
-    validation: ValidationMode = "strict",
+    validation: ValidationMode = "permissive",
 ) -> TimelineDirectorySummary:
     diagnostics: list[Diagnostic] = []
     buffer_count = 0

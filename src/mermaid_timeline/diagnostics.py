@@ -9,7 +9,7 @@ from typing import Literal, cast
 
 from mermaid_timeline.records import JsonObject, display_path
 
-type ValidationMode = Literal["strict", "diagnostic"]
+type ValidationMode = Literal["strict", "permissive", "diagnostic"]
 _MISSING = object()
 
 
@@ -44,7 +44,9 @@ class ValidationContext:
     """Collect diagnostics or raise immediately, depending on validation mode."""
 
     def __init__(self, mode: ValidationMode) -> None:
-        if mode not in ("strict", "diagnostic"):
+        if mode == "diagnostic":
+            mode = "permissive"
+        if mode not in ("strict", "permissive"):
             raise ValueError(f"unknown validation mode: {mode!r}")
         self.mode = mode
         self.diagnostics: list[Diagnostic] = []

@@ -171,7 +171,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(json.loads(output.getvalue())["buffer_intervals"], 1)
             self.assertTrue((input_dir / "buffer_intervals.jsonl").exists())
 
-    def test_cli_diagnostic_mode_writes_diagnostics_jsonl(self) -> None:
+    def test_cli_permissive_mode_writes_diagnostics_jsonl(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
             input_dir = tmp_path / "records" / "467.174-T-0100"
@@ -201,7 +201,7 @@ class CliTests(unittest.TestCase):
                         "--output",
                         str(output_root),
                         "--validation",
-                        "diagnostic",
+                        "permissive",
                     ]
                 )
 
@@ -897,6 +897,8 @@ class CliTests(unittest.TestCase):
                         str(tmp_path / "records"),
                         "--output",
                         str(tmp_path / "timeline"),
+                        "--validation",
+                        "strict",
                     ]
                 )
 
@@ -949,6 +951,8 @@ class CliTests(unittest.TestCase):
                         str(tmp_path / "records"),
                         "--output",
                         str(tmp_path / "timeline"),
+                        "--validation",
+                        "strict",
                     ]
                 )
 

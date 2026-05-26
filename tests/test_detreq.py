@@ -66,9 +66,9 @@ class DetReqTests(unittest.TestCase):
         rows = [event_row(criterion="0.0296122")]
 
         with self.assertRaisesRegex(TimelineValidationError, "mixed_detreq_fields"):
-            build_detreq_intervals(rows)
+            build_detreq_intervals(rows, validation="strict")
 
-        diagnostic = build_detreq_intervals(rows, validation="diagnostic")
+        diagnostic = build_detreq_intervals(rows)
         self.assertEqual(diagnostic.intervals, [])
         self.assertEqual(
             [item.code for item in diagnostic.diagnostics],

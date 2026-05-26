@@ -177,9 +177,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     build.add_argument(
         "--validation",
-        choices=("strict", "diagnostic"),
-        default="strict",
-        help="validation mode (default: strict)",
+        choices=("strict", "permissive"),
+        default="permissive",
+        help="validation mode (default: permissive)",
     )
 
     plot = subparsers.add_parser(

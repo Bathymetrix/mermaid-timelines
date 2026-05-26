@@ -46,8 +46,7 @@ places.
 
 ```bash
 mermaid-timeline build \
-  --input /path/to/mermaid-records/output \
-  --validation strict
+  --input /path/to/mermaid-records/output
 ```
 
 When `--output` is omitted, JSONL products are written back under the input
@@ -56,9 +55,9 @@ write a separate mirrored output tree.
 
 Validation modes:
 
+- `permissive` (default): emit diagnostics and continue where an interval can
+  still be synthesized conservatively.
 - `strict`: raise on invalid or ambiguous input.
-- `diagnostic`: emit diagnostics and continue where an interval can still be
-  synthesized conservatively.
 
 ## Optional Plotting
 

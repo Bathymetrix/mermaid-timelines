@@ -159,12 +159,12 @@ Output shape:
 
 ## Diagnostics
 
-Diagnostic mode may write `timeline_diagnostics.jsonl` next to interval output
+Permissive mode may write `timeline_diagnostics.jsonl` next to interval output
 files for an input records directory. The file is a flat JSONL stream with one
 diagnostic object per line and no top-level document wrapper. It is only written
 when diagnostics are emitted.
 
-The build pipeline emits this file when `--validation diagnostic` encounters
+The build pipeline emits this file when `--validation permissive` encounters
 recoverable validation conditions such as duplicate or orphan acquisition
 transitions. In `--validation strict`, the same conditions fail the command
 instead of producing interval output for that directory.
@@ -213,7 +213,7 @@ Rules:
   `end_time = null` and `end_boundary = "open_unknown"` because the true stop
   happened before the assertion.
 - Repeated `stopped` assertions do not create intervals.
-- Duplicate or orphan transitions are strict validation errors and diagnostic
+- Duplicate or orphan transitions are strict validation errors and permissive
   mode diagnostics.
 - If input ends while an interval is active, the interval is emitted with
   `end_time = null` and `end_boundary = "open_unknown"`.
@@ -233,7 +233,8 @@ REQ classification:
 
 - `criterion`, `snr`, `trig`, and `detrig` are all null.
 
-Mixed combinations are validation failures.
+Mixed combinations emit diagnostics in permissive mode and fail validation in
+strict mode.
 
 Timing convention:
 

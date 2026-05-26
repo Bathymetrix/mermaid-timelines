@@ -106,7 +106,7 @@ class BufferTests(unittest.TestCase):
         self.assertEqual(interval["provenance"]["start_record_line"], 1)
         self.assertEqual(interval["provenance"]["end_record_line"], 3)
 
-    def test_duplicate_transition_is_strict_error_and_diagnostic_warning(self) -> None:
+    def test_duplicate_transition_is_strict_error_and_permissive_warning(self) -> None:
         rows = [
             row("2023-11-20T10:00:00", "started", "transition"),
             row("2023-11-20T10:05:00", "started", "transition"),
@@ -118,7 +118,7 @@ class BufferTests(unittest.TestCase):
         ):
             build_buffer_intervals(rows, validation="strict")
 
-        diagnostic = build_buffer_intervals(rows, validation="diagnostic")
+        diagnostic = build_buffer_intervals(rows)
         self.assertEqual(len(diagnostic.intervals), 1)
         self.assertEqual(
             [item.code for item in diagnostic.diagnostics],
@@ -129,13 +129,13 @@ class BufferTests(unittest.TestCase):
             ["2023-11-20T10:05:00.000000Z"],
         )
 
-    def test_orphan_stop_transition_is_strict_error_and_diagnostic_warning(self) -> None:
+    def test_orphan_stop_transition_is_strict_error_and_permissive_warning(self) -> None:
         rows = [row("2023-11-20T10:00:00", "stopped", "transition")]
 
         with self.assertRaisesRegex(TimelineValidationError, "orphan_stop_transition"):
             build_buffer_intervals(rows, validation="strict")
 
-        diagnostic = build_buffer_intervals(rows, validation="diagnostic")
+        diagnostic = build_buffer_intervals(rows)
         self.assertEqual(diagnostic.intervals, [])
         self.assertEqual(
             [item.code for item in diagnostic.diagnostics],
@@ -146,7 +146,7 @@ class BufferTests(unittest.TestCase):
             ["2023-11-20T10:00:00.000000Z"],
         )
 
-    def test_orphan_stop_transition_diagnostic_mode_continues(self) -> None:
+    def test_orphan_stop_transition_permissive_mode_continues(self) -> None:
         rows = [
             row("2023-11-20T10:00:00", "stopped", "transition"),
             row("2023-11-20T11:00:00", "started", "transition"),
@@ -156,7 +156,7 @@ class BufferTests(unittest.TestCase):
         with self.assertRaisesRegex(TimelineValidationError, "orphan_stop_transition"):
             build_buffer_intervals(rows, validation="strict")
 
-        diagnostic = build_buffer_intervals(rows, validation="diagnostic")
+        diagnostic = build_buffer_intervals(rows, validation="permissive")
         self.assertEqual(
             [item.code for item in diagnostic.diagnostics],
             ["orphan_stop_transition"],

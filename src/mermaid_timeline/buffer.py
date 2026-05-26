@@ -51,7 +51,7 @@ def build_buffer_intervals(
     rows: JsonRows,
     *,
     records_file: str = ACQUISITION_RECORDS_FILE,
-    validation: ValidationMode = "strict",
+    validation: ValidationMode = "permissive",
 ) -> TimelineResult:
     """Build BUF intervals from normalized acquisition JSONL rows."""
 
@@ -64,7 +64,7 @@ def build_buffer_intervals_from_records(
     records: SourceRecords,
     *,
     records_file: str = ACQUISITION_RECORDS_FILE,
-    validation: ValidationMode = "strict",
+    validation: ValidationMode = "permissive",
 ) -> TimelineResult:
     ctx = ValidationContext(validation)
     events = _validated_events(records, ctx, records_file=records_file)
