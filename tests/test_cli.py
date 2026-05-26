@@ -372,7 +372,8 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual([trace.name for trace in figure.data], ["buf", "req", "det"])
         self.assertEqual([trace.orientation for trace in figure.data], ["h"] * 3)
-        self.assertEqual([trace.y for trace in figure.data], [["T0100"]] * 3)
+        self.assertEqual([trace.y for trace in figure.data], [[0.12], [0.0], [-0.12]])
+        self.assertEqual([trace.width for trace in figure.data], [0.12] * 3)
         self.assertEqual(
             [trace.base for trace in figure.data],
             [
@@ -400,6 +401,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual([trace.legendrank for trace in figure.data], [2, 1, 0])
         self.assertEqual(figure.layout["xaxis"]["type"], "date")
         self.assertEqual(figure.layout["xaxis"]["title"], "Time")
+        self.assertEqual(figure.layout["yaxis"]["type"], "linear")
+        self.assertEqual(figure.layout["yaxis"]["tickmode"], "array")
+        self.assertEqual(figure.layout["yaxis"]["tickvals"], [0.0])
+        self.assertEqual(figure.layout["yaxis"]["ticktext"], ["T0100"])
+        self.assertEqual(figure.layout["yaxis"]["range"], [0.5, -0.5])
         self.assertEqual(figure.layout["barmode"], "overlay")
         self.assertNotIn("yaxis2", figure.layout)
         self.assertNotIn("yaxis3", figure.layout)

@@ -19,6 +19,8 @@ from mermaid_timeline.pipeline import BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FI
 _HTML_SUFFIXES = {".htm", ".html"}
 _DRAW_ORDER = {"buf": 0, "req": 1, "det": 2}
 _LEGEND_ORDER = {"det": 0, "req": 1, "buf": 2}
+_LANE_OFFSETS = {"det": -0.12, "req": 0.0, "buf": 0.12}
+_LANE_HEIGHT = 0.12
 
 
 class MissingPlotlyError(RuntimeError):
@@ -417,6 +419,7 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
         "req": "#D627B0",
     }
     horizon = _plot_horizon(intervals)
+    y_centers = _instrument_y_centers(intervals)
     figure = go.Figure()
 
     for interval in _plot_draw_order(intervals):
@@ -432,8 +435,8 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
                 orientation="h",
                 base=[interval.start_time],
                 x=[_duration_milliseconds(interval.start_time, display_end)],
-                y=[interval.instrument_id],
-                width=0.36,
+                y=[_interval_lane_y(interval, y_centers)],
+                width=_LANE_HEIGHT,
                 marker={
                     "color": color,
                     "line": {
@@ -459,8 +462,11 @@ def _build_figure(intervals: Sequence[IntervalRow], go: object) -> object:
         },
         yaxis={
             "title": "Instrument ID",
-            "type": "category",
-            "autorange": "reversed",
+            "type": "linear",
+            "range": _yaxis_range(y_centers),
+            "tickmode": "array",
+            "tickvals": list(y_centers.values()),
+            "ticktext": list(y_centers.keys()),
         },
         hovermode="closest",
         barmode="overlay",
@@ -483,6 +489,31 @@ def _plot_draw_order(intervals: Sequence[IntervalRow]) -> list[IntervalRow]:
 
 def _first_trace_for_type(figure: object, interval_type: str) -> bool:
     return all(trace.name != interval_type for trace in figure.data)
+
+
+def _instrument_y_centers(intervals: Sequence[IntervalRow]) -> dict[str, float]:
+    instrument_ids = sorted({interval.instrument_id for interval in intervals})
+    return {
+        instrument_id: float(index)
+        for index, instrument_id in enumerate(instrument_ids)
+    }
+
+
+def _interval_lane_y(
+    interval: IntervalRow,
+    y_centers: dict[str, float],
+) -> float:
+    return y_centers[interval.instrument_id] + _LANE_OFFSETS.get(
+        interval.interval_type,
+        0.0,
+    )
+
+
+def _yaxis_range(y_centers: dict[str, float]) -> list[float]:
+    if not y_centers:
+        return [0.5, -0.5]
+    centers = list(y_centers.values())
+    return [max(centers) + 0.5, min(centers) - 0.5]
 
 
 def _plot_horizon(intervals: Sequence[IntervalRow]) -> datetime:
