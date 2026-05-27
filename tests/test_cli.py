@@ -256,9 +256,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
         self.assertIn("--input", output.getvalue())
         self.assertIn("--combined", output.getvalue())
-        self.assertIn("--instrument-id", output.getvalue())
-        self.assertIn("--instrument-serial", output.getvalue())
+        self.assertIn("--id", output.getvalue())
+        self.assertIn("--ser", output.getvalue())
+        self.assertNotIn("--instrument-id", output.getvalue())
+        self.assertNotIn("--instrument-serial", output.getvalue())
         self.assertIn("-i, --input INPUT", output.getvalue())
+        self.assertIn("-s, --start-time START_TIME", output.getvalue())
+        self.assertIn("-e, --end-time END_TIME", output.getvalue())
         self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
 
     def test_cli_plot_combined_writes_merged_html_report(self) -> None:
@@ -626,7 +630,7 @@ class CliTests(unittest.TestCase):
                         "plot",
                         "--input",
                         str(input_dir),
-                        "--instrument-id",
+                        "--id",
                         "P0022",
                     ]
                 )
@@ -688,7 +692,7 @@ class CliTests(unittest.TestCase):
                         str(tmp_path / "timeline"),
                         "--output",
                         str(report_path),
-                        "--instrument-id",
+                        "--id",
                         "T0100",
                     ]
                 )
@@ -745,7 +749,7 @@ class CliTests(unittest.TestCase):
                         str(tmp_path / "timeline"),
                         "--output",
                         str(report_base),
-                        "--instrument-serial",
+                        "--ser",
                         "467.174-T-0100",
                     ]
                 )
@@ -768,7 +772,7 @@ class CliTests(unittest.TestCase):
                         "plot",
                         "--input",
                         tmp_name,
-                        "--instrument-id",
+                        "--id",
                         "0100",
                     ]
                 )
@@ -821,7 +825,7 @@ class CliTests(unittest.TestCase):
                         "plot",
                         "--input",
                         str(tmp_path / "timeline"),
-                        "--instrument-id",
+                        "--id",
                         "T0100",
                     ]
                 )
@@ -871,9 +875,9 @@ class CliTests(unittest.TestCase):
                         str(tmp_path / "timeline"),
                         "--output",
                         str(report_path),
-                        "--start-time",
+                        "-s",
                         "2024-03-01T00:00:00Z",
-                        "--end-time",
+                        "-e",
                         "2024-03-31T00:00:00Z",
                     ]
                 )

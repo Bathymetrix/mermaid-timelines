@@ -122,14 +122,14 @@ Optional filters:
 ```bash
 mermaid-timeline plot \
   --input /path/to/timeline/output \
-  --instrument-id T0100 \
+  --id T0100 \
   --start-time 2023-01-01T00:00:00Z \
   --end-time 2024-01-01T00:00:00Z
 ```
 
-`--instrument-id` accepts the canonical 5-character station name and resolves it
+`--id` accepts the canonical 5-character station name and resolves it
 to one matching serial subdirectory. To select by exact subdirectory name, use
-`--instrument-serial 467.174-T-0100`. If `--output` is a file path for a single
+`--ser 467.174-T-0100`. If `--output` is a file path for a single
 selected station, `.html` is appended when needed.
 
 ## State-Machine Summary

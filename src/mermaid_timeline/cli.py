@@ -212,18 +212,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     instrument_selector = plot.add_mutually_exclusive_group()
     instrument_selector.add_argument(
-        "--instrument-id",
+        "--id",
+        dest="instrument_id",
         help="5-character station name to include, such as T0100",
     )
     instrument_selector.add_argument(
-        "--instrument-serial",
+        "--ser",
+        dest="instrument_serial",
         help="full instrument serial subdirectory to include, such as 467.174-T-0100",
     )
     plot.add_argument(
+        "-s",
         "--start-time",
         help="include intervals overlapping this ISO-8601 lower bound",
     )
     plot.add_argument(
+        "-e",
         "--end-time",
         help="include intervals overlapping this ISO-8601 upper bound",
     )

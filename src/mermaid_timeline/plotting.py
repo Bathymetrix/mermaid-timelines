@@ -166,9 +166,7 @@ def _parse_filter_instrument_id(instrument_id: str | None) -> str | None:
         return None
     stripped = instrument_id.strip()
     if len(stripped) != 5:
-        raise ValueError(
-            "--instrument-id must be a 5-character station name such as T0100"
-        )
+        raise ValueError("--id must be a 5-character station name such as T0100")
     return stripped
 
 
@@ -180,8 +178,7 @@ def _parse_filter_instrument_serial(instrument_serial: str | None) -> str | None
         parse_instrument_name(stripped)
     except ValueError as exc:
         raise ValueError(
-            "--instrument-serial must be a canonical serial such as "
-            "467.174-T-0100"
+            "--ser must be a canonical serial such as 467.174-T-0100"
         ) from exc
     return stripped
 
@@ -245,13 +242,13 @@ def _plot_interval_directories(
         )
         if not matches:
             raise ValueError(
-                f"--instrument-serial {filters.instrument_serial!r} did not match "
+                f"--ser {filters.instrument_serial!r} did not match "
                 f"a subdirectory under {root}"
             )
         if len(matches) > 1:
             names = ", ".join(str(match.path.relative_to(root)) for match in matches)
             raise ValueError(
-                f"--instrument-serial {filters.instrument_serial!r} matched "
+                f"--ser {filters.instrument_serial!r} matched "
                 f"multiple subdirectories: {names}"
             )
         return tuple(matches)
@@ -260,13 +257,13 @@ def _plot_interval_directories(
         matches = _serial_directories_for_instrument_id(root, filters.instrument_id)
         if not matches:
             raise ValueError(
-                f"--instrument-id {filters.instrument_id!r} did not match any "
+                f"--id {filters.instrument_id!r} did not match any "
                 f"serial subdirectory of {root}"
             )
         if len(matches) > 1:
             names = ", ".join(match.path.name for match in matches)
             raise ValueError(
-                f"--instrument-id {filters.instrument_id!r} matched multiple "
+                f"--id {filters.instrument_id!r} matched multiple "
                 f"serial subdirectories: {names}"
             )
         return tuple(matches)
@@ -297,7 +294,7 @@ def _validate_single_serial_input(
         and filters.instrument_serial != instrument_name.serial
     ):
         raise ValueError(
-            f"--instrument-serial {filters.instrument_serial!r} does not match "
+            f"--ser {filters.instrument_serial!r} does not match "
             f"input serial directory {instrument_name.serial!r}"
         )
     if (
@@ -305,7 +302,7 @@ def _validate_single_serial_input(
         and filters.instrument_id != instrument_name.instrument_id
     ):
         raise ValueError(
-            f"--instrument-id {filters.instrument_id!r} does not match "
+            f"--id {filters.instrument_id!r} does not match "
             f"input serial directory instrument ID {instrument_name.instrument_id!r}"
         )
 
