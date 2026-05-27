@@ -11,7 +11,10 @@ from typing import Sequence
 
 from mermaid_timeline import __version__
 from mermaid_timeline.diagnostics import TimelineValidationError
-from mermaid_timeline.pipeline import run_timeline_pipeline
+from mermaid_timeline.pipeline import (
+    TimelineDirectorySummary,
+    run_timeline_pipeline,
+)
 from mermaid_timeline.plotting import (
     MissingPlotlyError,
     _ensure_html_suffix,
@@ -24,6 +27,8 @@ from mermaid_timeline.plotting import (
 MERMAID_ENV_VAR = "MERMAID"
 DEFAULT_RECORDS_SUBDIR = "records"
 DEFAULT_TIMELINE_SUBDIR = "timeline"
+SUMMARY_REPORT_BIN_SIZE = "year"
+SUMMARY_INTERVAL_TYPES = ("buf", "det", "req")
 
 
 class _CompactOptionHelpFormatter(argparse.HelpFormatter):
@@ -48,10 +53,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             input_root = _build_input_root(args.input)
             output_root = _build_output_root(args.output)
+            print("Building intervals...", file=sys.stderr)
             summary = run_timeline_pipeline(
                 input_root,
                 output_root,
                 validation=args.validation,
+                progress_callback=_print_build_directory_progress,
             )
         except TimelineValidationError as exc:
             print(f"mermaid-timeline: validation failed: {exc}", file=sys.stderr)
@@ -146,6 +153,71 @@ def _combined_plot_output(input_root: Path, output: str | None) -> Path:
     if output_path.exists() and output_path.is_dir():
         return output_path / "timeline.html"
     return _ensure_html_suffix(output_path)
+
+
+def _print_build_directory_progress(directory: TimelineDirectorySummary) -> None:
+    for block in _build_progress_blocks(directory):
+        print(f"{block['label']}:", file=sys.stderr)
+        counts = block["counts"]
+        durations = block["durations"]
+        for interval_type in SUMMARY_INTERVAL_TYPES:
+            count = int(counts[interval_type])
+            hours = float(durations[interval_type]) / 3600.0
+            print(
+                f"    {interval_type}: {count:2d} intervals [{hours:.1f} hr]",
+                file=sys.stderr,
+            )
+
+
+def _build_progress_blocks(
+    directory: TimelineDirectorySummary,
+) -> list[dict[str, object]]:
+    rows_by_label: dict[str, list[dict[str, object]]] = {}
+    for row in directory.summary_interval_rows:
+        if row.get("bin_size") != SUMMARY_REPORT_BIN_SIZE:
+            continue
+        label = _summary_row_label(row, directory.input_dir)
+        rows_by_label.setdefault(label, []).append(row)
+
+    if not rows_by_label:
+        return [_empty_progress_block(directory.input_dir.name)]
+
+    return [
+        _progress_block_from_summary_rows(label, rows)
+        for label, rows in rows_by_label.items()
+    ]
+
+
+def _summary_row_label(row: dict[str, object], input_dir: Path) -> str:
+    instrument_serial = row.get("instrument_serial")
+    if instrument_serial is not None and str(instrument_serial).strip():
+        return str(instrument_serial)
+    return input_dir.name
+
+
+def _empty_progress_block(label: str) -> dict[str, object]:
+    return {
+        "label": label,
+        "counts": {interval_type: 0 for interval_type in SUMMARY_INTERVAL_TYPES},
+        "durations": {interval_type: 0.0 for interval_type in SUMMARY_INTERVAL_TYPES},
+    }
+
+
+def _progress_block_from_summary_rows(
+    label: str, rows: list[dict[str, object]]
+) -> dict[str, object]:
+    block = _empty_progress_block(label)
+    counts = block["counts"]
+    durations = block["durations"]
+    for row in rows:
+        row_counts = row.get("interval_count")
+        row_durations = row.get("duration_seconds")
+        if not isinstance(row_counts, dict) or not isinstance(row_durations, dict):
+            continue
+        for interval_type in SUMMARY_INTERVAL_TYPES:
+            counts[interval_type] += int(row_counts.get(interval_type, 0))
+            durations[interval_type] += float(row_durations.get(interval_type, 0.0))
+    return block
 
 
 def _build_input_root(input_arg: str | None) -> Path:

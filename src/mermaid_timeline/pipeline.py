@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from mermaid_timeline.buffer import (
 )
 from mermaid_timeline.detreq import MER_EVENT_RECORDS_FILE, build_detreq_intervals_from_records
 from mermaid_timeline.diagnostics import Diagnostic, ValidationMode
-from mermaid_timeline.records import iter_jsonl, write_jsonl
+from mermaid_timeline.records import JsonObject, iter_jsonl, write_jsonl
 from mermaid_timeline.summary import (
     build_summary_intervals_from_files,
     write_summary_jsonl,
@@ -32,6 +33,7 @@ class TimelineDirectorySummary:
     detreq_intervals: int
     summary_intervals: int
     diagnostics: int
+    summary_interval_rows: list[JsonObject]
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +62,7 @@ def run_timeline_pipeline(
     output_root: Path,
     *,
     validation: ValidationMode = "permissive",
+    progress_callback: Callable[[TimelineDirectorySummary], None] | None = None,
 ) -> TimelinePipelineSummary:
     """Synthesize timeline products for every normalized records directory."""
 
@@ -70,9 +73,10 @@ def run_timeline_pipeline(
     for input_dir in _discover_record_dirs(input_root):
         relative_dir = input_dir.relative_to(input_root)
         output_dir = output_root / relative_dir
-        summaries.append(
-            synthesize_directory(input_dir, output_dir, validation=validation)
-        )
+        summary = synthesize_directory(input_dir, output_dir, validation=validation)
+        summaries.append(summary)
+        if progress_callback is not None:
+            progress_callback(summary)
 
     return TimelinePipelineSummary(directories=summaries)
 
@@ -89,6 +93,7 @@ def synthesize_directory(
     summary_count = 0
     buffer_intervals = []
     detreq_intervals = []
+    summary_intervals: list[JsonObject] = []
 
     for acquisition_path in _record_files_for_family(
         input_dir, _record_family(ACQUISITION_RECORDS_FILE)
@@ -149,6 +154,7 @@ def synthesize_directory(
         detreq_intervals=detreq_count,
         summary_intervals=summary_count,
         diagnostics=len(diagnostics),
+        summary_interval_rows=summary_intervals,
     )
 
 

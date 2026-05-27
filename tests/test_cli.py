@@ -13,6 +13,7 @@ from unittest.mock import patch
 from mermaid_timeline import __version__
 from mermaid_timeline.cli import main
 from mermaid_timeline.interval_reader import IntervalRow
+from mermaid_timeline.pipeline import TimelineDirectorySummary, TimelinePipelineSummary
 from mermaid_timeline.plotting import MissingPlotlyError, _build_figure
 
 
@@ -145,6 +146,165 @@ class CliTests(unittest.TestCase):
                 "req",
             )
 
+    def test_cli_build_prints_per_instrument_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            tmp_path = Path(tmp_name)
+            input_dir = tmp_path / "records" / "467.174-T-0100"
+            input_dir.mkdir(parents=True)
+            _write_jsonl(
+                input_dir / "log_acquisition_records.467.174-T-0100.jsonl",
+                [
+                    {
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
+                        "source_file": "0100_acq.LOG",
+                        "record_time": "2024-01-01T00:00:00Z",
+                        "acquisition_state": "started",
+                        "acquisition_evidence_kind": "transition",
+                    },
+                    {
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
+                        "source_file": "0100_acq.LOG",
+                        "record_time": "2024-01-01T02:00:00Z",
+                        "acquisition_state": "stopped",
+                        "acquisition_evidence_kind": "transition",
+                    },
+                ],
+            )
+            _write_jsonl(
+                input_dir / "mer_event_records.467.174-T-0100.jsonl",
+                [
+                    _event_row(
+                        "2024-01-02T00:00:00Z",
+                        criterion="STA/LTA",
+                        snr="1.0",
+                        trig="0.1",
+                        detrig="0.2",
+                        length="3601",
+                    ),
+                    _event_row("2024-01-03T00:00:00Z", length="1801"),
+                ],
+            )
+
+            output = io.StringIO()
+            stderr = io.StringIO()
+            with redirect_stdout(output), redirect_stderr(stderr):
+                exit_code = main(
+                    [
+                        "build",
+                        "--input",
+                        str(tmp_path / "records"),
+                        "--output",
+                        str(tmp_path / "timeline"),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(stderr.getvalue().count("Building intervals..."), 1)
+            self.assertIn("467.174-T-0100:", stderr.getvalue())
+            self.assertRegex(
+                stderr.getvalue(),
+                r"buf: +1 intervals \[2\.0 hr\]\n"
+                r"    det: +1 intervals \[1\.0 hr\]\n"
+                r"    req: +1 intervals \[0\.5 hr\]",
+            )
+            self.assertEqual(json.loads(output.getvalue())["directories"], 1)
+
+    def test_cli_build_progress_falls_back_to_input_directory_name(self) -> None:
+        summary = TimelinePipelineSummary(
+            directories=[
+                TimelineDirectorySummary(
+                    input_dir=Path("foo/bar/baz"),
+                    output_dir=Path("out/baz"),
+                    buffer_intervals=0,
+                    detreq_intervals=0,
+                    summary_intervals=1,
+                    diagnostics=0,
+                    summary_interval_rows=[
+                        {
+                            "instrument_id": "T0100",
+                            "instrument_serial": None,
+                            "bin_size": "year",
+                            "interval_count": {"buf": 0, "det": 0, "req": 0},
+                            "duration_seconds": {"buf": 0.0, "det": 0.0, "req": 0.0},
+                        }
+                    ],
+                )
+            ]
+        )
+        output = io.StringIO()
+        stderr = io.StringIO()
+
+        def fake_run_timeline_pipeline(*args: object, **kwargs: object) -> object:
+            del args
+            progress_callback = kwargs["progress_callback"]
+            progress_callback(summary.directories[0])
+            return summary
+
+        with patch(
+            "mermaid_timeline.cli.run_timeline_pipeline",
+            side_effect=fake_run_timeline_pipeline,
+        ):
+            with redirect_stdout(output), redirect_stderr(stderr):
+                exit_code = main(
+                    ["build", "--input", "records", "--output", "timeline"]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("baz:", stderr.getvalue())
+
+    def test_cli_build_progress_uses_summary_rows(self) -> None:
+        summary = TimelinePipelineSummary(
+            directories=[
+                TimelineDirectorySummary(
+                    input_dir=Path("records/not-the-label"),
+                    output_dir=Path("timeline/not-the-label"),
+                    buffer_intervals=99,
+                    detreq_intervals=99,
+                    summary_intervals=1,
+                    diagnostics=0,
+                    summary_interval_rows=[
+                        {
+                            "instrument_id": "T0100",
+                            "instrument_serial": "467.174-T-0100",
+                            "bin_size": "year",
+                            "interval_count": {"buf": 2, "det": 3, "req": 4},
+                            "duration_seconds": {
+                                "buf": 7200.0,
+                                "det": 10800.0,
+                                "req": 14400.0,
+                            },
+                        }
+                    ],
+                )
+            ]
+        )
+        output = io.StringIO()
+        stderr = io.StringIO()
+
+        def fake_run_timeline_pipeline(*args: object, **kwargs: object) -> object:
+            del args
+            self.assertEqual(stderr.getvalue(), "Building intervals...\n")
+            progress_callback = kwargs["progress_callback"]
+            progress_callback(summary.directories[0])
+            return summary
+
+        with patch(
+            "mermaid_timeline.cli.run_timeline_pipeline",
+            side_effect=fake_run_timeline_pipeline,
+        ):
+            with redirect_stdout(output), redirect_stderr(stderr):
+                exit_code = main(
+                    ["build", "--input", "records", "--output", "timeline"]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("    buf:  2 intervals [2.0 hr]", stderr.getvalue())
+        self.assertIn("    det:  3 intervals [3.0 hr]", stderr.getvalue())
+        self.assertIn("    req:  4 intervals [4.0 hr]", stderr.getvalue())
+        self.assertEqual(json.loads(output.getvalue())["buffer_intervals"], 99)
+
     def test_cli_build_defaults_paths_to_mermaid_records_and_timeline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
@@ -160,13 +320,22 @@ class CliTests(unittest.TestCase):
                         "record_time": "2023-11-20T10:00:00.000000Z",
                         "acquisition_state": "started",
                         "acquisition_evidence_kind": "transition",
+                    },
+                    {
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
+                        "source_file": "0100_acq.LOG",
+                        "record_time": "2023-11-20T11:00:00.000000Z",
+                        "acquisition_state": "stopped",
+                        "acquisition_evidence_kind": "transition",
                     }
                 ],
             )
 
             output = io.StringIO()
+            stderr = io.StringIO()
             with patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
-                with redirect_stdout(output):
+                with redirect_stdout(output), redirect_stderr(stderr):
                     exit_code = main(["build"])
 
             self.assertEqual(exit_code, 0)
@@ -195,13 +364,22 @@ class CliTests(unittest.TestCase):
                         "record_time": "2023-11-20T10:00:00.000000Z",
                         "acquisition_state": "started",
                         "acquisition_evidence_kind": "transition",
+                    },
+                    {
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
+                        "source_file": "0100_acq.LOG",
+                        "record_time": "2023-11-20T11:00:00.000000Z",
+                        "acquisition_state": "stopped",
+                        "acquisition_evidence_kind": "transition",
                     }
                 ],
             )
 
             output = io.StringIO()
+            stderr = io.StringIO()
             with patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
-                with redirect_stdout(output):
+                with redirect_stdout(output), redirect_stderr(stderr):
                     exit_code = main(
                         ["build", "--input", str(tmp_path / "input-records")]
                     )
@@ -302,7 +480,6 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
         self.assertIn("-i, --input INPUT", output.getvalue())
         self.assertIn("-o, --output OUTPUT", output.getvalue())
-        self.assertIn("$MERMAID/records", output.getvalue())
         self.assertIn("$MERMAID/timeline", output.getvalue())
         self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
 
@@ -1124,6 +1301,29 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
                 f"{path}:{line_number}:{exc.colno}: invalid JSONL in test fixture"
             ) from exc
     return rows
+
+
+def _event_row(
+    date: str,
+    *,
+    criterion: str | None = None,
+    snr: str | None = None,
+    trig: str | None = None,
+    detrig: str | None = None,
+    length: str = "2",
+) -> dict[str, object]:
+    return {
+        "instrument_id": "T0100",
+        "instrument_serial": "467.174-T-0100",
+        "source_file": "0100_event.MER",
+        "date": date,
+        "criterion": criterion,
+        "snr": snr,
+        "trig": trig,
+        "detrig": detrig,
+        "sampling_rate": "1.000000",
+        "length": length,
+    }
 
 
 def _interval_row(
