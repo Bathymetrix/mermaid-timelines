@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -144,7 +145,7 @@ class CliTests(unittest.TestCase):
                 "req",
             )
 
-    def test_cli_build_defaults_output_to_input_directory(self) -> None:
+    def test_cli_build_defaults_paths_to_mermaid_records_and_timeline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
             input_dir = tmp_path / "records" / "467.174-T-0100"
@@ -164,12 +165,68 @@ class CliTests(unittest.TestCase):
             )
 
             output = io.StringIO()
-            with redirect_stdout(output):
-                exit_code = main(["build", "--input", str(tmp_path / "records")])
+            with patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
+                with redirect_stdout(output):
+                    exit_code = main(["build"])
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(json.loads(output.getvalue())["buffer_intervals"], 1)
-            self.assertTrue((input_dir / "buffer_intervals.jsonl").exists())
+            self.assertTrue(
+                (
+                    tmp_path
+                    / "timeline"
+                    / "467.174-T-0100"
+                    / "buffer_intervals.jsonl"
+                ).exists()
+            )
+
+    def test_cli_build_defaults_output_to_mermaid_timeline_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            tmp_path = Path(tmp_name)
+            input_dir = tmp_path / "input-records" / "467.174-T-0100"
+            input_dir.mkdir(parents=True)
+            _write_jsonl(
+                input_dir / "log_acquisition_records.467.174-T-0100.jsonl",
+                [
+                    {
+                        "instrument_id": "T0100",
+                        "instrument_serial": "467.174-T-0100",
+                        "source_file": "0100_acq.LOG",
+                        "record_time": "2023-11-20T10:00:00.000000Z",
+                        "acquisition_state": "started",
+                        "acquisition_evidence_kind": "transition",
+                    }
+                ],
+            )
+
+            output = io.StringIO()
+            with patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
+                with redirect_stdout(output):
+                    exit_code = main(
+                        ["build", "--input", str(tmp_path / "input-records")]
+                    )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(json.loads(output.getvalue())["buffer_intervals"], 1)
+            self.assertTrue(
+                (
+                    tmp_path
+                    / "timeline"
+                    / "467.174-T-0100"
+                    / "buffer_intervals.jsonl"
+                ).exists()
+            )
+
+    def test_cli_build_reports_missing_mermaid_for_default_paths(self) -> None:
+        output = io.StringIO()
+        stderr = io.StringIO()
+        with patch.dict(os.environ, {}, clear=True):
+            with redirect_stdout(output), redirect_stderr(stderr):
+                exit_code = main(["build"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(output.getvalue(), "")
+        self.assertIn("$MERMAID is not set", stderr.getvalue())
 
     def test_cli_permissive_mode_writes_diagnostics_jsonl(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
@@ -245,6 +302,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
         self.assertIn("-i, --input INPUT", output.getvalue())
         self.assertIn("-o, --output OUTPUT", output.getvalue())
+        self.assertIn("$MERMAID/records", output.getvalue())
+        self.assertIn("$MERMAID/timeline", output.getvalue())
         self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
 
     def test_cli_plot_help_succeeds(self) -> None:

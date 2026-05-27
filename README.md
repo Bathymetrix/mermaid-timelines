@@ -45,13 +45,13 @@ places.
 ## CLI
 
 ```bash
-mermaid-timeline build \
-  --input /path/to/mermaid-records/output
+mermaid-timeline build
 ```
 
-When `--output` is omitted, JSONL products are written back under the input
-tree beside the normalized records. Pass `--output /path/to/timeline/output` to
-write a separate mirrored output tree.
+By default, `build` reads normalized records from `$MERMAID/records` and writes
+JSONL products under `$MERMAID/timeline`, creating output directories as needed.
+Pass `--input /path/to/records` or `--output /path/to/timeline` to override
+either default.
 
 Validation modes:
 

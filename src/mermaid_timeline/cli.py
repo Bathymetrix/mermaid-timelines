@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -18,6 +19,11 @@ from mermaid_timeline.plotting import (
     parse_plot_filters,
     write_availability_html,
 )
+
+
+MERMAID_ENV_VAR = "MERMAID"
+DEFAULT_RECORDS_SUBDIR = "records"
+DEFAULT_TIMELINE_SUBDIR = "timeline"
 
 
 class _CompactOptionHelpFormatter(argparse.HelpFormatter):
@@ -39,9 +45,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "build":
-        input_root = Path(args.input)
-        output_root = Path(args.output) if args.output is not None else input_root
         try:
+            input_root = _build_input_root(args.input)
+            output_root = _build_output_root(args.output)
             summary = run_timeline_pipeline(
                 input_root,
                 output_root,
@@ -142,6 +148,28 @@ def _combined_plot_output(input_root: Path, output: str | None) -> Path:
     return _ensure_html_suffix(output_path)
 
 
+def _build_input_root(input_arg: str | None) -> Path:
+    if input_arg is not None:
+        return Path(input_arg)
+    return _mermaid_default_root(DEFAULT_RECORDS_SUBDIR, "--input")
+
+
+def _build_output_root(output_arg: str | None) -> Path:
+    if output_arg is not None:
+        return Path(output_arg)
+    return _mermaid_default_root(DEFAULT_TIMELINE_SUBDIR, "--output")
+
+
+def _mermaid_default_root(subdir: str, option: str) -> Path:
+    mermaid_root = os.environ.get(MERMAID_ENV_VAR)
+    if not mermaid_root:
+        raise ValueError(
+            f"{option} omitted and ${MERMAID_ENV_VAR} is not set; "
+            f"pass {option} or set ${MERMAID_ENV_VAR}"
+        )
+    return Path(mermaid_root) / subdir
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mermaid-timeline",
@@ -167,13 +195,15 @@ def _build_parser() -> argparse.ArgumentParser:
     build.add_argument(
         "-i",
         "--input",
-        required=True,
-        help="normalized mermaid-records output directory",
+        help="normalized mermaid-records output directory (default: $MERMAID/records)",
     )
     build.add_argument(
         "-o",
         "--output",
-        help="directory where timeline JSONL outputs will be written (default: input)",
+        help=(
+            "directory where timeline JSONL outputs will be written "
+            "(default: $MERMAID/timeline)"
+        ),
     )
     build.add_argument(
         "--validation",
