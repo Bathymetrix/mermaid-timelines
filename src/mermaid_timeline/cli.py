@@ -13,6 +13,7 @@ from mermaid_timeline import __version__
 from mermaid_timeline.diagnostics import TimelineValidationError
 from mermaid_timeline.pipeline import (
     TimelineDirectorySummary,
+    TimelinePipelineSummary,
     run_timeline_pipeline,
 )
 from mermaid_timeline.plotting import (
@@ -66,17 +67,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ValueError as exc:
             print(f"mermaid-timeline: build failed: {exc}", file=sys.stderr)
             return 1
-        print(
-            json.dumps(
-                {
-                    "directories": len(summary.directories),
-                    "buffer_intervals": summary.buffer_intervals,
-                    "detreq_intervals": summary.detreq_intervals,
-                    "diagnostics": summary.diagnostics,
-                },
-                sort_keys=True,
-            )
-        )
+        _print_build_done(summary, output_root)
         return 0
 
     if args.command == "plot":
@@ -158,15 +149,31 @@ def _combined_plot_output(input_root: Path, output: str | None) -> Path:
 def _print_build_directory_progress(directory: TimelineDirectorySummary) -> None:
     for block in _build_progress_blocks(directory):
         print(f"{block['label']}:", file=sys.stderr)
-        counts = block["counts"]
-        durations = block["durations"]
-        for interval_type in SUMMARY_INTERVAL_TYPES:
-            count = int(counts[interval_type])
-            hours = float(durations[interval_type]) / 3600.0
-            print(
-                f"    {interval_type}: {count:2d} intervals [{hours:.1f} hr]",
-                file=sys.stderr,
-            )
+        _print_interval_totals(block)
+
+
+def _print_build_done(summary: TimelinePipelineSummary, output_root: Path) -> None:
+    rows = [
+        row
+        for directory in summary.directories
+        for row in directory.summary_interval_rows
+        if row.get("bin_size") == SUMMARY_REPORT_BIN_SIZE
+    ]
+    print(f"\nDone: intervals written to {output_root}", file=sys.stderr)
+    print("\nSummary:", file=sys.stderr)
+    _print_interval_totals(_progress_block_from_summary_rows("Summary", rows), width=9)
+
+
+def _print_interval_totals(block: dict[str, object], *, width: int = 6) -> None:
+    counts = block["counts"]
+    durations = block["durations"]
+    for interval_type in SUMMARY_INTERVAL_TYPES:
+        count = int(counts[interval_type])
+        hours = float(durations[interval_type]) / 3600.0
+        print(
+            f"    {interval_type}: {count:>{width},} intervals [{hours:,.1f} hr]",
+            file=sys.stderr,
+        )
 
 
 def _build_progress_blocks(

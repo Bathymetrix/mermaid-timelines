@@ -86,7 +86,8 @@ class CliTests(unittest.TestCase):
 
             output_root = tmp_path / "timeline"
             output = io.StringIO()
-            with redirect_stdout(output):
+            stderr = io.StringIO()
+            with redirect_stdout(output), redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "build",
@@ -98,16 +99,9 @@ class CliTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            summary = json.loads(output.getvalue())
-            self.assertEqual(
-                summary,
-                {
-                    "buffer_intervals": 1,
-                    "detreq_intervals": 1,
-                    "diagnostics": 0,
-                    "directories": 1,
-                },
-            )
+            self.assertEqual(output.getvalue(), "")
+            self.assertNotIn('"buffer_intervals"', stderr.getvalue())
+            self.assertIn(f"Done: intervals written to {output_root}", stderr.getvalue())
             output_dir = output_root / "467.174-T-0100"
             buffer_text = (output_dir / "buffer_intervals.jsonl").read_text(
                 encoding="utf-8"
@@ -209,7 +203,8 @@ class CliTests(unittest.TestCase):
                 r"    det: +1 intervals \[1\.0 hr\]\n"
                 r"    req: +1 intervals \[0\.5 hr\]",
             )
-            self.assertEqual(json.loads(output.getvalue())["directories"], 1)
+            self.assertIn("\nSummary:", stderr.getvalue())
+            self.assertEqual(output.getvalue(), "")
 
     def test_cli_build_progress_falls_back_to_input_directory_name(self) -> None:
         summary = TimelinePipelineSummary(
@@ -253,6 +248,8 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn("baz:", stderr.getvalue())
+        self.assertIn("\nSummary:", stderr.getvalue())
+        self.assertEqual(output.getvalue(), "")
 
     def test_cli_build_progress_uses_summary_rows(self) -> None:
         summary = TimelinePipelineSummary(
@@ -277,7 +274,28 @@ class CliTests(unittest.TestCase):
                             },
                         }
                     ],
-                )
+                ),
+                TimelineDirectorySummary(
+                    input_dir=Path("records/second-label"),
+                    output_dir=Path("timeline/second-label"),
+                    buffer_intervals=100,
+                    detreq_intervals=100,
+                    summary_intervals=1,
+                    diagnostics=0,
+                    summary_interval_rows=[
+                        {
+                            "instrument_id": "T0200",
+                            "instrument_serial": "467.175-T-0200",
+                            "bin_size": "year",
+                            "interval_count": {"buf": 1234, "det": 6, "req": 7},
+                            "duration_seconds": {
+                                "buf": 36018000.0,
+                                "det": 21600.0,
+                                "req": 25200.0,
+                            },
+                        }
+                    ],
+                ),
             ]
         )
         output = io.StringIO()
@@ -287,7 +305,8 @@ class CliTests(unittest.TestCase):
             del args
             self.assertEqual(stderr.getvalue(), "Building intervals...\n")
             progress_callback = kwargs["progress_callback"]
-            progress_callback(summary.directories[0])
+            for directory in summary.directories:
+                progress_callback(directory)
             return summary
 
         with patch(
@@ -300,10 +319,16 @@ class CliTests(unittest.TestCase):
                 )
 
         self.assertEqual(exit_code, 0)
-        self.assertIn("    buf:  2 intervals [2.0 hr]", stderr.getvalue())
-        self.assertIn("    det:  3 intervals [3.0 hr]", stderr.getvalue())
-        self.assertIn("    req:  4 intervals [4.0 hr]", stderr.getvalue())
-        self.assertEqual(json.loads(output.getvalue())["buffer_intervals"], 99)
+        self.assertIn("    buf:      2 intervals [2.0 hr]", stderr.getvalue())
+        self.assertIn("    det:      3 intervals [3.0 hr]", stderr.getvalue())
+        self.assertIn("    req:      4 intervals [4.0 hr]", stderr.getvalue())
+        self.assertIn("    buf:  1,234 intervals [10,005.0 hr]", stderr.getvalue())
+        self.assertIn("Done: intervals written to timeline", stderr.getvalue())
+        self.assertIn("\nSummary:", stderr.getvalue())
+        self.assertIn("    buf:     1,236 intervals [10,007.0 hr]", stderr.getvalue())
+        self.assertIn("    det:         9 intervals [9.0 hr]", stderr.getvalue())
+        self.assertIn("    req:        11 intervals [11.0 hr]", stderr.getvalue())
+        self.assertEqual(output.getvalue(), "")
 
     def test_cli_build_defaults_paths_to_mermaid_records_and_timeline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
@@ -339,7 +364,7 @@ class CliTests(unittest.TestCase):
                     exit_code = main(["build"])
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual(json.loads(output.getvalue())["buffer_intervals"], 1)
+            self.assertEqual(output.getvalue(), "")
             self.assertTrue(
                 (
                     tmp_path
@@ -385,7 +410,7 @@ class CliTests(unittest.TestCase):
                     )
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual(json.loads(output.getvalue())["buffer_intervals"], 1)
+            self.assertEqual(output.getvalue(), "")
             self.assertTrue(
                 (
                     tmp_path
@@ -427,7 +452,8 @@ class CliTests(unittest.TestCase):
 
             output_root = tmp_path / "timeline"
             output = io.StringIO()
-            with redirect_stdout(output):
+            stderr = io.StringIO()
+            with redirect_stdout(output), redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "build",
@@ -441,8 +467,7 @@ class CliTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            summary = json.loads(output.getvalue())
-            self.assertEqual(summary["diagnostics"], 1)
+            self.assertEqual(output.getvalue(), "")
 
             diagnostics = _read_jsonl(
                 output_root / "467.174-T-0100" / "timeline_diagnostics.jsonl"
