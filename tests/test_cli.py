@@ -355,7 +355,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("timeline_subdir: 467.174-T-0100", html)
             self.assertIn("open-ended; true end unknown", html)
 
-    def test_plot_renders_hoverable_interval_bars_with_det_on_top(self) -> None:
+    def test_plot_renders_hoverable_interval_bars_with_detreq_lane(self) -> None:
         figure = _build_figure(
             [
                 _interval_row("T0100", "det", "2024-02-07T22:47:22Z"),
@@ -372,7 +372,7 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual([trace.name for trace in figure.data], ["buf", "req", "det"])
         self.assertEqual([trace.orientation for trace in figure.data], ["h"] * 3)
-        self.assertEqual([trace.y for trace in figure.data], [[0.12], [0.0], [-0.12]])
+        self.assertEqual([trace.y for trace in figure.data], [[0.06], [-0.06], [-0.06]])
         self.assertEqual([trace.width for trace in figure.data], [0.12] * 3)
         self.assertEqual(
             [trace.base for trace in figure.data],

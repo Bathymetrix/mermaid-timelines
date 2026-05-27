@@ -19,7 +19,7 @@ from mermaid_timeline.pipeline import BUFFER_INTERVALS_FILE, DETREQ_INTERVALS_FI
 _HTML_SUFFIXES = {".htm", ".html"}
 _DRAW_ORDER = {"buf": 0, "req": 1, "det": 2}
 _LEGEND_ORDER = {"det": 0, "req": 1, "buf": 2}
-_LANE_OFFSETS = {"det": -0.12, "req": 0.0, "buf": 0.12}
+_LANE_OFFSETS = {"det": -0.06, "req": -0.06, "buf": 0.06}
 _LANE_HEIGHT = 0.12
 
 
