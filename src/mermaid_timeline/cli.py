@@ -71,8 +71,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "plot":
-        input_root = Path(args.input)
         try:
+            input_root = _build_plot_input_root(args.input)
             filters = parse_plot_filters(
                 instrument_id=args.instrument_id,
                 instrument_serial=args.instrument_serial,
@@ -80,7 +80,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 end_time=args.end_time,
             )
             if args.combined:
-                output = _combined_plot_output(input_root, args.output)
+                output = _combined_plot_output(args.output)
                 print(
                     f"mermaid-timeline: plotting combined {input_root} -> {output}",
                     file=sys.stderr,
@@ -93,11 +93,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                 )
             else:
-                output = Path(args.output) if args.output is not None else None
-                output_label = output if output is not None else "input directories"
+                output = _build_plot_output_root(args.output)
+                if args.output is None:
+                    output.mkdir(parents=True, exist_ok=True)
                 print(
                     f"mermaid-timeline: plotting per-instrument "
-                    f"{input_root} -> {output_label}",
+                    f"{input_root} -> {output}",
                     file=sys.stderr,
                 )
                 reports = _write_instrument_availability_html(
@@ -136,9 +137,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 2
 
 
-def _combined_plot_output(input_root: Path, output: str | None) -> Path:
+def _combined_plot_output(output: str | None) -> Path:
     if output is None:
-        return input_root / "timeline.html"
+        return (
+            _mermaid_default_root(DEFAULT_TIMELINE_SUBDIR, "--output")
+            / "timeline.html"
+        )
 
     output_path = Path(output)
     if output_path.exists() and output_path.is_dir():
@@ -239,6 +243,18 @@ def _build_output_root(output_arg: str | None) -> Path:
     return _mermaid_default_root(DEFAULT_TIMELINE_SUBDIR, "--output")
 
 
+def _build_plot_input_root(input_arg: str | None) -> Path:
+    if input_arg is not None:
+        return Path(input_arg)
+    return _mermaid_default_root(DEFAULT_TIMELINE_SUBDIR, "--input")
+
+
+def _build_plot_output_root(output_arg: str | None) -> Path:
+    if output_arg is not None:
+        return Path(output_arg)
+    return _mermaid_default_root(DEFAULT_TIMELINE_SUBDIR, "--output")
+
+
 def _mermaid_default_root(subdir: str, option: str) -> Path:
     mermaid_root = os.environ.get(MERMAID_ENV_VAR)
     if not mermaid_root:
@@ -299,10 +315,9 @@ def _build_parser() -> argparse.ArgumentParser:
     plot.add_argument(
         "-i",
         "--input",
-        required=True,
         help=(
             "timeline output root containing instrument serial subdirectories, "
-            "or one instrument serial directory"
+            "or one instrument serial directory (default: $MERMAID/timeline)"
         ),
     )
     plot.add_argument(
@@ -311,7 +326,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "output directory for per-instrument reports; with --combined or a "
             "single-station input/filter, self-contained HTML report path "
-            "(default: input)"
+            "(default: $MERMAID/timeline)"
         ),
     )
     plot.add_argument(

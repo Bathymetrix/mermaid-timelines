@@ -505,6 +505,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
         self.assertIn("-i, --input INPUT", output.getvalue())
         self.assertIn("-o, --output OUTPUT", output.getvalue())
+        self.assertIn("$MERMAID/records", output.getvalue())
         self.assertIn("$MERMAID/timeline", output.getvalue())
         self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
 
@@ -522,6 +523,7 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("--instrument-id", output.getvalue())
         self.assertNotIn("--instrument-serial", output.getvalue())
         self.assertIn("-i, --input INPUT", output.getvalue())
+        self.assertIn("$MERMAID/timeline", output.getvalue())
         self.assertIn("-s, --start-time START_TIME", output.getvalue())
         self.assertIn("-e, --end-time END_TIME", output.getvalue())
         self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
@@ -619,6 +621,37 @@ class CliTests(unittest.TestCase):
             self.assertIn("float_serial: 467.174", html)
             self.assertIn("timeline_subdir: 467.174-T-0100", html)
             self.assertIn("open-ended; true end unknown", html)
+
+    def test_cli_plot_combined_defaults_to_mermaid_timeline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            tmp_path = Path(tmp_name)
+            output_dir = tmp_path / "timeline" / "467.174-T-0100"
+            _write_jsonl(
+                output_dir / "detreq_intervals.jsonl",
+                [
+                    {
+                        "instrument_id": "T0100",
+                        "interval_type": "det",
+                        "start_time": "2024-02-07T22:47:22Z",
+                        "end_time": "2024-02-07T22:47:23Z",
+                        "start_boundary": "closed",
+                        "end_boundary": "closed",
+                    }
+                ],
+            )
+
+            output = io.StringIO()
+            report_path = tmp_path / "timeline" / "timeline.html"
+            with patch(
+                "mermaid_timeline.plotting._load_plotly",
+                return_value=(_FakeGo, _fake_plot),
+            ), patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
+                with redirect_stdout(output):
+                    exit_code = main(["plot", "--combined"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(json.loads(output.getvalue())["output"], str(report_path))
+            self.assertTrue(report_path.exists())
 
     def test_plot_renders_hoverable_interval_bars_with_detreq_lane(self) -> None:
         figure = _build_figure(
@@ -727,8 +760,9 @@ class CliTests(unittest.TestCase):
             with patch(
                 "mermaid_timeline.plotting._load_plotly",
                 return_value=(_FakeGo, _fake_plot),
-            ), redirect_stdout(output), redirect_stderr(stderr):
-                exit_code = main(["plot", "--input", str(tmp_path / "timeline")])
+            ), patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
+                with redirect_stdout(output), redirect_stderr(stderr):
+                    exit_code = main(["plot"])
 
             first_report = first_dir / "R0065_data_intervals.html"
             second_report = second_dir / "T0100_data_intervals.html"
@@ -745,7 +779,7 @@ class CliTests(unittest.TestCase):
                     nested_report.resolve(),
                 },
             )
-            self.assertIn("input directories", stderr.getvalue())
+            self.assertIn(str(tmp_path / "timeline"), stderr.getvalue())
             first_html = first_report.read_text(encoding="utf-8")
             second_html = second_report.read_text(encoding="utf-8")
             nested_html = nested_report.read_text(encoding="utf-8")
@@ -885,16 +919,17 @@ class CliTests(unittest.TestCase):
             )
 
             stderr = io.StringIO()
-            with redirect_stderr(stderr):
-                exit_code = main(
-                    [
-                        "plot",
-                        "--input",
-                        str(input_dir),
-                        "--id",
-                        "P0022",
-                    ]
-                )
+            with patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
+                with redirect_stderr(stderr):
+                    exit_code = main(
+                        [
+                            "plot",
+                            "--input",
+                            str(input_dir),
+                            "--id",
+                            "P0022",
+                        ]
+                    )
 
             self.assertEqual(exit_code, 1)
             self.assertIn("does not match input serial directory", stderr.getvalue())
@@ -902,11 +937,27 @@ class CliTests(unittest.TestCase):
     def test_cli_plot_reports_no_interval_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             stderr = io.StringIO()
-            with redirect_stderr(stderr):
-                exit_code = main(["plot", "--input", tmp_name])
+            with patch.dict(os.environ, {"MERMAID": tmp_name}):
+                with redirect_stderr(stderr):
+                    exit_code = main(["plot", "--input", tmp_name])
 
             self.assertEqual(exit_code, 1)
             self.assertIn("no interval JSONL files found", stderr.getvalue())
+
+    def test_cli_plot_reports_missing_mermaid_for_default_paths(self) -> None:
+        output = io.StringIO()
+        stderr = io.StringIO()
+        with patch.dict(os.environ, {}, clear=True):
+            with redirect_stdout(output), redirect_stderr(stderr):
+                exit_code = main(
+                    [
+                        "plot",
+                    ]
+                )
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("$MERMAID is not set", stderr.getvalue())
 
     def test_cli_plot_instrument_filter_reduces_html_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
@@ -1080,16 +1131,17 @@ class CliTests(unittest.TestCase):
             )
 
             stderr = io.StringIO()
-            with redirect_stderr(stderr):
-                exit_code = main(
-                    [
-                        "plot",
-                        "--input",
-                        str(tmp_path / "timeline"),
-                        "--id",
-                        "T0100",
-                    ]
-                )
+            with patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
+                with redirect_stderr(stderr):
+                    exit_code = main(
+                        [
+                            "plot",
+                            "--input",
+                            str(tmp_path / "timeline"),
+                            "--id",
+                            "T0100",
+                        ]
+                    )
 
             self.assertEqual(exit_code, 1)
             error = stderr.getvalue()

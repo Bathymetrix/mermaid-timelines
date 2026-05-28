@@ -73,14 +73,14 @@ Install the reporting extra when you want HTML plots:
 pip install "mermaid-timeline[plot]"
 ```
 
-Then create self-contained Plotly availability reports. When `--input` is a
-timeline output root, `plot` searches one level deep for instrument serial
-subdirectories such as `467.174-T-0100`, then writes one HTML report beside each
-subdirectory's interval JSONL files:
+Then create self-contained Plotly availability reports. By default, `plot` reads
+timeline files from `$MERMAID/timeline` and writes reports under
+`$MERMAID/timeline`. When `--input` is a timeline output root, `plot` searches
+one level deep for instrument serial subdirectories such as `467.174-T-0100`,
+then writes one HTML report for each instrument:
 
 ```bash
-mermaid-timeline plot \
-  --input /path/to/timeline/output
+mermaid-timeline plot
 ```
 
 You can also pass one instrument serial directory directly:
@@ -100,14 +100,13 @@ Use `--combined` to merge all float timelines into single report:
 
 ```bash
 mermaid-timeline plot \
-  --input /path/to/timeline/output \
   --combined \
-  --output timeline.html
+  --output /path/to/reports/timeline.html
 ```
 
 In combined mode, `--output` is an HTML file path. If it omits a suffix,
 `.html` is appended. If `--output` is omitted, the report is written to
-`timeline.html` under the input directory.
+`timeline.html` under `$MERMAID/timeline`.
 
 Reports distinguish `buf`, `det`, and `req` intervals, and mark `open_unknown`
 ends as open-ended in the visual styling and hover text. Plotting scans the
