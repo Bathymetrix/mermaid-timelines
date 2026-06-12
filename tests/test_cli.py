@@ -195,7 +195,10 @@ class CliTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual(stderr.getvalue().count("Building intervals..."), 1)
+            self.assertIn(
+                f"Building timelines in {(tmp_path / 'timeline').resolve()}...",
+                stderr.getvalue(),
+            )
             self.assertIn("467.174-T-0100:", stderr.getvalue())
             self.assertRegex(
                 stderr.getvalue(),
@@ -303,7 +306,10 @@ class CliTests(unittest.TestCase):
 
         def fake_run_timeline_pipeline(*args: object, **kwargs: object) -> object:
             del args
-            self.assertEqual(stderr.getvalue(), "Building intervals...\n")
+            self.assertEqual(
+                stderr.getvalue(),
+                f"Building timelines in {Path('timeline').resolve()}...\n",
+            )
             progress_callback = kwargs["progress_callback"]
             for directory in summary.directories:
                 progress_callback(directory)
@@ -330,7 +336,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("    req:        11 intervals [11.0 hr]", stderr.getvalue())
         self.assertEqual(output.getvalue(), "")
 
-    def test_cli_build_defaults_paths_to_mermaid_records_and_timeline(self) -> None:
+    def test_cli_build_defaults_paths_to_mermaid_records_and_timelines(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
             input_dir = tmp_path / "records" / "467.174-T-0100"
@@ -368,13 +374,13 @@ class CliTests(unittest.TestCase):
             self.assertTrue(
                 (
                     tmp_path
-                    / "timeline"
+                    / "timelines"
                     / "467.174-T-0100"
                     / "buffer_intervals.jsonl"
                 ).exists()
             )
 
-    def test_cli_build_defaults_output_to_mermaid_timeline_directory(self) -> None:
+    def test_cli_build_defaults_output_to_mermaid_timelines_directory(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
             input_dir = tmp_path / "input-records" / "467.174-T-0100"
@@ -414,7 +420,7 @@ class CliTests(unittest.TestCase):
             self.assertTrue(
                 (
                     tmp_path
-                    / "timeline"
+                    / "timelines"
                     / "467.174-T-0100"
                     / "buffer_intervals.jsonl"
                 ).exists()
@@ -506,7 +512,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("-i, --input INPUT", output.getvalue())
         self.assertIn("-o, --output OUTPUT", output.getvalue())
         self.assertIn("$MERMAID/records", output.getvalue())
-        self.assertIn("$MERMAID/timeline", output.getvalue())
+        self.assertIn("$MERMAID/timelines", output.getvalue())
         self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
 
     def test_cli_plot_help_succeeds(self) -> None:
@@ -523,7 +529,7 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("--instrument-id", output.getvalue())
         self.assertNotIn("--instrument-serial", output.getvalue())
         self.assertIn("-i, --input INPUT", output.getvalue())
-        self.assertIn("$MERMAID/timeline", output.getvalue())
+        self.assertIn("$MERMAID/timelines", output.getvalue())
         self.assertIn("-s, --start-time START_TIME", output.getvalue())
         self.assertIn("-e, --end-time END_TIME", output.getvalue())
         self.assertNotIn("-i INPUT, --input INPUT", output.getvalue())
@@ -604,11 +610,14 @@ class CliTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            summary = json.loads(output.getvalue())
-            self.assertEqual(summary["intervals"], 3)
-            self.assertEqual(summary["output"], str(report_path))
-            self.assertIn("mermaid-timeline: plotting", stderr.getvalue())
-            self.assertIn(str(report_path), stderr.getvalue())
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn(
+                f"Plotting timelines in {report_path.resolve()}...",
+                stderr.getvalue(),
+            )
+            self.assertIn("combined:", stderr.getvalue())
+            self.assertIn(f"Wrote: {report_path.resolve()}", stderr.getvalue())
+            self.assertIn("\nSummary:", stderr.getvalue())
             html = report_path.read_text(encoding="utf-8")
             self.assertIn("T0100", html)
             self.assertIn("T0200", html)
@@ -622,10 +631,10 @@ class CliTests(unittest.TestCase):
             self.assertIn("timeline_subdir: 467.174-T-0100", html)
             self.assertIn("open-ended; true end unknown", html)
 
-    def test_cli_plot_combined_defaults_to_mermaid_timeline(self) -> None:
+    def test_cli_plot_combined_defaults_to_mermaid_timelines(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
-            output_dir = tmp_path / "timeline" / "467.174-T-0100"
+            output_dir = tmp_path / "timelines" / "467.174-T-0100"
             _write_jsonl(
                 output_dir / "detreq_intervals.jsonl",
                 [
@@ -641,16 +650,18 @@ class CliTests(unittest.TestCase):
             )
 
             output = io.StringIO()
-            report_path = tmp_path / "timeline" / "timeline.html"
+            stderr = io.StringIO()
+            report_path = tmp_path / "timelines" / "timeline.html"
             with patch(
                 "mermaid_timeline.plotting._load_plotly",
                 return_value=(_FakeGo, _fake_plot),
             ), patch.dict(os.environ, {"MERMAID": str(tmp_path)}):
-                with redirect_stdout(output):
+                with redirect_stdout(output), redirect_stderr(stderr):
                     exit_code = main(["plot", "--combined"])
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual(json.loads(output.getvalue())["output"], str(report_path))
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn(f"Wrote: {report_path.resolve()}", stderr.getvalue())
             self.assertTrue(report_path.exists())
 
     def test_plot_renders_hoverable_interval_bars_with_detreq_lane(self) -> None:
@@ -712,9 +723,9 @@ class CliTests(unittest.TestCase):
     def test_cli_plot_defaults_to_one_html_report_per_instrument(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name:
             tmp_path = Path(tmp_name)
-            first_dir = tmp_path / "timeline" / "452.120-R-0065"
-            second_dir = tmp_path / "timeline" / "467.174-T-0100"
-            nested_dir = tmp_path / "timeline" / "nested" / "999.999-T-9999"
+            first_dir = tmp_path / "timelines" / "452.120-R-0065"
+            second_dir = tmp_path / "timelines" / "467.174-T-0100"
+            nested_dir = tmp_path / "timelines" / "nested" / "999.999-T-9999"
             _write_jsonl(
                 first_dir / "detreq_intervals.jsonl",
                 [
@@ -767,19 +778,13 @@ class CliTests(unittest.TestCase):
             first_report = first_dir / "R0065_data_intervals.html"
             second_report = second_dir / "T0100_data_intervals.html"
             nested_report = nested_dir / "T9999_data_intervals.html"
-            summary = json.loads(output.getvalue())
             self.assertEqual(exit_code, 0)
-            self.assertEqual(summary["intervals"], 3)
-            self.assertEqual(summary["reports"], 3)
-            self.assertEqual(
-                {Path(item["output"]).resolve() for item in summary["outputs"]},
-                {
-                    first_report.resolve(),
-                    second_report.resolve(),
-                    nested_report.resolve(),
-                },
-            )
-            self.assertIn(str(tmp_path / "timeline"), stderr.getvalue())
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn(str(tmp_path / "timelines"), stderr.getvalue())
+            self.assertIn(f"Wrote: {first_report.resolve()}", stderr.getvalue())
+            self.assertIn(f"Wrote: {second_report.resolve()}", stderr.getvalue())
+            self.assertIn(f"Wrote: {nested_report.resolve()}", stderr.getvalue())
+            self.assertIn("\nSummary:", stderr.getvalue())
             first_html = first_report.read_text(encoding="utf-8")
             second_html = second_report.read_text(encoding="utf-8")
             nested_html = nested_report.read_text(encoding="utf-8")
@@ -823,10 +828,11 @@ class CliTests(unittest.TestCase):
 
             output_root = tmp_path / "reports"
             output = io.StringIO()
+            stderr = io.StringIO()
             with patch(
                 "mermaid_timeline.plotting._load_plotly",
                 return_value=(_FakeGo, _fake_plot),
-            ), redirect_stdout(output):
+            ), redirect_stdout(output), redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "plot",
@@ -849,12 +855,10 @@ class CliTests(unittest.TestCase):
                 / "467.175-T-0200"
                 / "T0200_data_intervals.html"
             )
-            summary = json.loads(output.getvalue())
             self.assertEqual(exit_code, 0)
-            self.assertEqual(
-                {Path(item["output"]).resolve() for item in summary["outputs"]},
-                {first_report.resolve(), second_report.resolve()},
-            )
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn(f"Wrote: {first_report.resolve()}", stderr.getvalue())
+            self.assertIn(f"Wrote: {second_report.resolve()}", stderr.getvalue())
             self.assertIn("T0100", first_report.read_text(encoding="utf-8"))
             self.assertIn("T0200", second_report.read_text(encoding="utf-8"))
 
@@ -878,10 +882,11 @@ class CliTests(unittest.TestCase):
 
             report_path = tmp_path / "reports" / "P0021_data_intervals.html"
             output = io.StringIO()
+            stderr = io.StringIO()
             with patch(
                 "mermaid_timeline.plotting._load_plotly",
                 return_value=(_FakeGo, _fake_plot),
-            ), redirect_stdout(output):
+            ), redirect_stdout(output), redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "plot",
@@ -892,12 +897,10 @@ class CliTests(unittest.TestCase):
                     ]
                 )
 
-            summary = json.loads(output.getvalue())
             self.assertEqual(exit_code, 0)
-            self.assertEqual(summary["intervals"], 1)
-            self.assertEqual(summary["reports"], 1)
-            self.assertEqual(summary["outputs"][0]["instrument_id"], "P0021")
-            self.assertEqual(summary["outputs"][0]["output"], str(report_path))
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("P0021:", stderr.getvalue())
+            self.assertIn(f"Wrote: {report_path.resolve()}", stderr.getvalue())
             self.assertIn("P0021", report_path.read_text(encoding="utf-8"))
 
     def test_cli_plot_single_instrument_input_rejects_mismatched_selector(self) -> None:
@@ -993,10 +996,11 @@ class CliTests(unittest.TestCase):
 
             report_path = tmp_path / "timeline.html"
             output = io.StringIO()
+            stderr = io.StringIO()
             with patch(
                 "mermaid_timeline.plotting._load_plotly",
                 return_value=(_FakeGo, _fake_plot),
-            ), redirect_stdout(output):
+            ), redirect_stdout(output), redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "plot",
@@ -1010,7 +1014,8 @@ class CliTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual(json.loads(output.getvalue())["intervals"], 1)
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn(f"Wrote: {report_path.resolve()}", stderr.getvalue())
             html = report_path.read_text(encoding="utf-8")
             self.assertIn("T0100", html)
             self.assertNotIn("T0200", html)
@@ -1050,10 +1055,11 @@ class CliTests(unittest.TestCase):
             report_base = tmp_path / "selected-report"
             report_path = report_base.with_suffix(".html")
             output = io.StringIO()
+            stderr = io.StringIO()
             with patch(
                 "mermaid_timeline.plotting._load_plotly",
                 return_value=(_FakeGo, _fake_plot),
-            ), redirect_stdout(output):
+            ), redirect_stdout(output), redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "plot",
@@ -1067,10 +1073,9 @@ class CliTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            summary = json.loads(output.getvalue())
-            self.assertEqual(summary["intervals"], 1)
-            self.assertEqual(summary["outputs"][0]["instrument_id"], "T0100")
-            self.assertEqual(summary["outputs"][0]["output"], str(report_path))
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("T0100:", stderr.getvalue())
+            self.assertIn(f"Wrote: {report_path.resolve()}", stderr.getvalue())
             html = report_path.read_text(encoding="utf-8")
             self.assertIn("T0100", html)
             self.assertNotIn("T0200", html)
@@ -1177,10 +1182,11 @@ class CliTests(unittest.TestCase):
 
             report_path = tmp_path / "timeline.html"
             output = io.StringIO()
+            stderr = io.StringIO()
             with patch(
                 "mermaid_timeline.plotting._load_plotly",
                 return_value=(_FakeGo, _fake_plot),
-            ), redirect_stdout(output):
+            ), redirect_stdout(output), redirect_stderr(stderr):
                 exit_code = main(
                     [
                         "plot",
@@ -1196,7 +1202,8 @@ class CliTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual(json.loads(output.getvalue())["intervals"], 1)
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("    req:      1 intervals", stderr.getvalue())
             html = report_path.read_text(encoding="utf-8")
             self.assertIn("req", html)
             self.assertNotIn("det", html)

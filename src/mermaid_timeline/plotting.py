@@ -45,6 +45,8 @@ class _IntervalDirectory:
 class _PlotReport:
     instrument_id: str
     interval_count: int
+    interval_count_by_type: dict[str, int]
+    duration_seconds_by_type: dict[str, float]
     output: Path
 
 
@@ -78,7 +80,7 @@ def write_availability_html(
     output: Path,
     *,
     filters: PlotFilters | None = None,
-) -> int:
+) -> _PlotReport:
     """Write a self-contained Plotly HTML availability report."""
 
     filters = filters or PlotFilters()
@@ -92,13 +94,20 @@ def write_availability_html(
         filters,
     )
     go, offline_plot = _load_plotly()
+    output = _ensure_html_suffix(output)
     _write_availability_html(
         intervals,
-        _ensure_html_suffix(output),
+        output,
         go=go,
         offline_plot=offline_plot,
     )
-    return len(intervals)
+    return _PlotReport(
+        instrument_id="combined",
+        interval_count=len(intervals),
+        interval_count_by_type=_interval_count_by_type(intervals),
+        duration_seconds_by_type=_duration_seconds_by_type(intervals),
+        output=output,
+    )
 
 
 def _write_instrument_availability_html(
@@ -154,6 +163,12 @@ def _write_instrument_availability_html(
             _PlotReport(
                 instrument_id=instrument_id,
                 interval_count=len(instrument_intervals),
+                interval_count_by_type=_interval_count_by_type(
+                    instrument_intervals
+                ),
+                duration_seconds_by_type=_duration_seconds_by_type(
+                    instrument_intervals
+                ),
                 output=report_path,
             )
         )
@@ -369,6 +384,24 @@ def _filter_intervals(
             continue
         selected.append(interval)
     return selected
+
+
+def _interval_count_by_type(intervals: Sequence[IntervalRow]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for interval in intervals:
+        counts[interval.interval_type] = counts.get(interval.interval_type, 0) + 1
+    return counts
+
+
+def _duration_seconds_by_type(intervals: Sequence[IntervalRow]) -> dict[str, float]:
+    durations: dict[str, float] = {}
+    for interval in intervals:
+        if interval.duration is None:
+            continue
+        durations[interval.interval_type] = (
+            durations.get(interval.interval_type, 0.0) + interval.duration
+        )
+    return durations
 
 
 def _single_instrument_output_file(

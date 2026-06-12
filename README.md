@@ -1,4 +1,4 @@
-# mermaid-timeline
+# mermaid-timelines
 
 `mermaid-timeline` consumes normalized `mermaid-records` JSONL outputs and
 synthesizes interval-level timeline products.
@@ -49,8 +49,8 @@ mermaid-timeline build
 ```
 
 By default, `build` reads normalized records from `$MERMAID/records` and writes
-JSONL products under `$MERMAID/timeline`, creating output directories as needed.
-Pass `--input /path/to/records` or `--output /path/to/timeline` to override
+JSONL products under `$MERMAID/timelines`, creating output directories as needed.
+Pass `--input /path/to/records` or `--output /path/to/timelines` to override
 either default.
 
 Validation modes:
@@ -74,8 +74,8 @@ pip install "mermaid-timeline[plot]"
 ```
 
 Then create self-contained Plotly availability reports. By default, `plot` reads
-timeline files from `$MERMAID/timeline` and writes reports under
-`$MERMAID/timeline`. When `--input` is a timeline output root, `plot` searches
+timeline files from `$MERMAID/timelines` and writes reports under
+`$MERMAID/timelines`. When `--input` is a timeline output root, `plot` searches
 one level deep for instrument serial subdirectories such as `467.174-T-0100`,
 then writes one HTML report for each instrument:
 
@@ -87,7 +87,7 @@ You can also pass one instrument serial directory directly:
 
 ```bash
 mermaid-timeline plot \
-  --input /path/to/timeline/output/467.174-T-0100 \
+  --input /path/to/timelines/output/467.174-T-0100 \
   --output /path/to/reports/T0100_data_intervals.html
 ```
 
@@ -106,7 +106,7 @@ mermaid-timeline plot \
 
 In combined mode, `--output` is an HTML file path. If it omits a suffix,
 `.html` is appended. If `--output` is omitted, the report is written to
-`timeline.html` under `$MERMAID/timeline`.
+`timeline.html` under `$MERMAID/timelines`.
 
 Reports distinguish `buf`, `det`, and `req` intervals, and mark `open_unknown`
 ends as open-ended in the visual styling and hover text. Plotting scans the
@@ -120,7 +120,7 @@ Optional filters:
 
 ```bash
 mermaid-timeline plot \
-  --input /path/to/timeline/output \
+  --input /path/to/timelines/output \
   --id T0100 \
   --start-time 2023-01-01T00:00:00Z \
   --end-time 2024-01-01T00:00:00Z
